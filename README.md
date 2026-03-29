@@ -62,6 +62,16 @@ Requii uses `electron-builder` for packaging. Generated artifacts are written to
 - Unsigned MSI, PKG, DEB, and RPM artifacts can still be generated for internal testing, but distribution-grade releases usually need platform-appropriate signing.
 - `dist/`, `dist-electron/`, and `release/` are generated output directories and should never be committed.
 
+### Manual GitHub Actions Builds
+
+- The repository includes a manually triggered workflow at `.github/workflows/manual-builds.yml`.
+- In GitHub, open `Actions`, choose `Manual Release Builds`, click `Run workflow`, then select:
+	- the git ref to build,
+	- whether to build Windows, macOS, and/or Linux,
+	- whether to build the full, installer-only, or portable-only artifact set.
+- Each selected platform runs on a native GitHub-hosted runner and uploads its output from `release/` as a workflow artifact.
+- Those workflow artifacts can be downloaded and attached to a GitHub Release later.
+
 ## Workspace Storage
 
 On first launch, Requii creates a managed workspace in the app data directory and stores request files plus an `environments.json` file inside that workspace. This keeps the app self-contained while preserving a simple on-disk format for exports and backups.
