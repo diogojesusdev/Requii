@@ -37,27 +37,10 @@ permissions:
   contents: read
 
 jobs:
-  build:
-    name: ${{ matrix.label }} / ${{ inputs.artifact_set }}
-    runs-on: ${{ matrix.runner }}
-    if: |
-      (matrix.platform == 'windows' && inputs.build_windows) ||
-      (matrix.platform == 'macos' && inputs.build_macos) ||
-      (matrix.platform == 'linux' && inputs.build_linux)
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - platform: windows
-            label: Windows
-            runner: windows-latest
-          - platform: macos
-            label: macOS
-            runner: macos-latest
-          - platform: linux
-            label: Linux
-            runner: ubuntu-latest
-
+  build-windows:
+    name: Windows / ${{ inputs.artifact_set }}
+    runs-on: windows-latest
+    if: ${{ inputs.build_windows }}
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -78,33 +61,11 @@ jobs:
         shell: pwsh
         run: |
           $artifactSet = '${{ inputs.artifact_set }}'
-          $platform = '${{ matrix.platform }}'
 
-          $command = switch ($platform) {
-            'windows' {
-              switch ($artifactSet) {
-                'installer' { 'npm run dist:win:installer' }
-                'portable' { 'npm run dist:win:portable' }
-                default { 'npm run dist:win' }
-              }
-            }
-            'macos' {
-              switch ($artifactSet) {
-                'installer' { 'npm run dist:mac:installer' }
-                'portable' { 'npm run dist:mac:portable' }
-                default { 'npm run dist:mac' }
-              }
-            }
-            'linux' {
-              switch ($artifactSet) {
-                'installer' { 'npm run dist:linux:installer' }
-                'portable' { 'npm run dist:linux:portable' }
-                default { 'npm run dist:linux' }
-              }
-            }
-            default {
-              throw "Unsupported platform: $platform"
-            }
+          $command = switch ($artifactSet) {
+            'installer' { 'npm run dist:win:installer' }
+            'portable' { 'npm run dist:win:portable' }
+            default { 'npm run dist:win' }
           }
 
           "command=$command" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
@@ -116,7 +77,99 @@ jobs:
       - name: Upload release artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: requii-${{ matrix.platform }}-${{ inputs.artifact_set }}
+          name: requii-windows-${{ inputs.artifact_set }}
+          path: |
+            release/**/*
+          if-no-files-found: error
+          retention-days: 14
+
+  build-macos:
+    name: macOS / ${{ inputs.artifact_set }}
+    runs-on: macos-latest
+    if: ${{ inputs.build_macos }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Select build command
+        id: build-command
+        shell: pwsh
+        run: |
+          $artifactSet = '${{ inputs.artifact_set }}'
+
+          $command = switch ($artifactSet) {
+            'installer' { 'npm run dist:mac:installer' }
+            'portable' { 'npm run dist:mac:portable' }
+            default { 'npm run dist:mac' }
+          }
+
+          "command=$command" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+
+      - name: Build release artifacts
+        shell: pwsh
+        run: ${{ steps.build-command.outputs.command }}
+
+      - name: Upload release artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: requii-macos-${{ inputs.artifact_set }}
+          path: |
+            release/**/*
+          if-no-files-found: error
+          retention-days: 14
+
+  build-linux:
+    name: Linux / ${{ inputs.artifact_set }}
+    runs-on: ubuntu-latest
+    if: ${{ inputs.build_linux }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Select build command
+        id: build-command
+        shell: pwsh
+        run: |
+          $artifactSet = '${{ inputs.artifact_set }}'
+
+          $command = switch ($artifactSet) {
+            'installer' { 'npm run dist:linux:installer' }
+            'portable' { 'npm run dist:linux:portable' }
+            default { 'npm run dist:linux' }
+            }
+
+          "command=$command" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+
+      - name: Build release artifacts
+        shell: pwsh
+        run: ${{ steps.build-command.outputs.command }}
+
+      - name: Upload release artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: requii-linux-${{ inputs.artifact_set }}
           path: |
             release/**/*
           if-no-files-found: error
