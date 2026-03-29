@@ -12,10 +12,16 @@
         "build:electron": "tsc -p tsconfig.electron.json",
         "build": "npm run build:electron && npm run typecheck:app && vite build",
         "start": "npm run build:electron && electron .",
-        "dist:win": "npm run build && electron-builder --win nsis",
-        "dist:portable": "npm run build && electron-builder --win portable",
-        "dist:mac": "npm run build && electron-builder --mac dmg zip",
-        "dist:linux": "npm run build && electron-builder --linux AppImage tar.gz"
+        "dist:win": "npm run build && electron-builder --win nsis portable msi",
+        "dist:win:installer": "npm run build && electron-builder --win nsis msi",
+        "dist:win:portable": "npm run build && electron-builder --win portable",
+        "dist:portable": "npm run dist:win:portable",
+        "dist:mac": "npm run build && electron-builder --mac dmg pkg zip",
+        "dist:mac:installer": "npm run build && electron-builder --mac dmg pkg",
+        "dist:mac:portable": "npm run build && electron-builder --mac zip",
+        "dist:linux": "npm run build && electron-builder --linux AppImage deb rpm tar.gz",
+        "dist:linux:installer": "npm run build && electron-builder --linux deb rpm",
+        "dist:linux:portable": "npm run build && electron-builder --linux AppImage tar.gz"
     },
     "build": {
         "appId": "com.requii.app",
@@ -40,6 +46,18 @@
                     "arch": [
                         "x64"
                     ]
+                },
+                {
+                    "target": "portable",
+                    "arch": [
+                        "x64"
+                    ]
+                },
+                {
+                    "target": "msi",
+                    "arch": [
+                        "x64"
+                    ]
                 }
             ],
             "artifactName": "${productName}-${version}-windows-${arch}.${ext}"
@@ -49,6 +67,13 @@
             "target": [
                 {
                     "target": "dmg",
+                    "arch": [
+                        "x64",
+                        "arm64"
+                    ]
+                },
+                {
+                    "target": "pkg",
                     "arch": [
                         "x64",
                         "arm64"
@@ -74,6 +99,18 @@
                     ]
                 },
                 {
+                    "target": "deb",
+                    "arch": [
+                        "x64"
+                    ]
+                },
+                {
+                    "target": "rpm",
+                    "arch": [
+                        "x64"
+                    ]
+                },
+                {
                     "target": "tar.gz",
                     "arch": [
                         "x64"
@@ -90,6 +127,9 @@
             "createStartMenuShortcut": true,
             "runAfterFinish": true,
             "shortcutName": "Requii"
+        },
+        "pkg": {
+            "installLocation": "/Applications"
         }
     },
     "dependencies": {
