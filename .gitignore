@@ -1,0 +1,12 @@
+node_modules/
+dist/
+*.log
+release/
+dist-electron/
+testfiles/
+.DS_Store
+Thumbs.db
+Desktop.ini
+.env
+.env.*
+!.env.example
