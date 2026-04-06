@@ -28,6 +28,7 @@ Requii uses `electron-builder` for packaging. Generated artifacts are written to
 - `npm run dist:win`: build the full Windows release set: NSIS installer, MSI installer, and portable EXE.
 - `npm run dist:win:installer`: build only the installable Windows artifacts.
 - `npm run dist:win:portable`: build only the portable Windows executable.
+- Full Windows builds now produce distinct file names so installer and portable `.exe` files can coexist in the same release.
 
 ### macOS
 
@@ -68,9 +69,12 @@ Requii uses `electron-builder` for packaging. Generated artifacts are written to
 - In GitHub, open `Actions`, choose `Manual Release Builds`, click `Run workflow`, then select:
 	- the git ref to build,
 	- whether to build Windows, macOS, and/or Linux,
-	- whether to build the full, installer-only, or portable-only artifact set.
-- Each selected platform runs on a native GitHub-hosted runner and uploads its output from `release/` as a workflow artifact.
-- Those workflow artifacts can be downloaded and attached to a GitHub Release later.
+	- whether to build the full, installer-only, or portable-only artifact set,
+	- whether to create or update a GitHub Release,
+	- the optional release tag and release name,
+	- whether the release should be marked as a prerelease.
+- Each selected platform runs on a native GitHub-hosted runner and uploads only the final distributable artifacts.
+- If release creation is enabled, the workflow collects the built artifacts from all selected platforms and publishes them to a GitHub Release automatically.
 
 ## Workspace Storage
 

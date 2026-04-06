@@ -61,8 +61,7 @@
                         "x64"
                     ]
                 }
-            ],
-            "artifactName": "${productName}-${version}-windows-${arch}.${ext}"
+            ]
         },
         "mac": {
             "category": "public.app-category.developer-tools",
@@ -122,6 +121,7 @@
             "artifactName": "${productName}-${version}-linux-${arch}.${ext}"
         },
         "nsis": {
+            "artifactName": "${productName}-${version}-windows-${arch}-installer.${ext}",
             "oneClick": false,
             "allowToChangeInstallationDirectory": true,
             "perMachine": false,
@@ -129,6 +129,12 @@
             "createStartMenuShortcut": true,
             "runAfterFinish": true,
             "shortcutName": "Requii"
+        },
+        "portable": {
+            "artifactName": "${productName}-${version}-windows-${arch}-portable.${ext}"
+        },
+        "msi": {
+            "artifactName": "${productName}-${version}-windows-${arch}-installer.${ext}"
         },
         "pkg": {
             "installLocation": "/Applications"
