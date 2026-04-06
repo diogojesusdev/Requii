@@ -64,6 +64,7 @@
             ]
         },
         "mac": {
+            "icon": "build/icon-macos.png",
             "category": "public.app-category.developer-tools",
             "target": [
                 {
@@ -91,6 +92,7 @@
             "artifactName": "${productName}-${version}-mac-${arch}.${ext}"
         },
         "linux": {
+            "maintainer": "Diogo Jesus",
             "category": "Development",
             "target": [
                 {
