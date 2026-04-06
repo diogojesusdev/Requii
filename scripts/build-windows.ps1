@@ -1,7 +1,10 @@
 param(
     [Parameter(Mandatory = $true)]
     [ValidateSet('all', 'installer', 'portable')]
-    [string]$Mode
+    [string]$Mode,
+
+    [Parameter(ValueFromRemainingArguments = $true)]
+    [string[]]$ExtraBuilderArgs
 )
 
 $ErrorActionPreference = 'Stop'
@@ -21,7 +24,7 @@ $targets = @(switch ($Mode) {
     default { @('nsis', 'portable', 'msi') }
 })
 
-$builderArgs = @('--win') + $targets + @("-c.directories.output=$stagingOutputDir")
+$builderArgs = @('--win') + $targets + @("-c.directories.output=$stagingOutputDir") + @($ExtraBuilderArgs)
 
 New-Item -ItemType Directory -Path $stagingOutputDir -Force | Out-Null
 Get-ChildItem -Path $stagingOutputDir -Force -ErrorAction SilentlyContinue | Remove-Item -Recurse -Force

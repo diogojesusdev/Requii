@@ -59,17 +59,17 @@ jobs:
       - name: Build full Windows release artifacts
         if: ${{ inputs.artifact_set == 'full' }}
         shell: pwsh
-        run: npm run dist:win
+        run: npm run dist:win -- --publish never
 
       - name: Build installable Windows release artifacts
         if: ${{ inputs.artifact_set == 'installer' }}
         shell: pwsh
-        run: npm run dist:win:installer
+        run: npm run dist:win:installer -- --publish never
 
       - name: Build portable Windows release artifacts
         if: ${{ inputs.artifact_set == 'portable' }}
         shell: pwsh
-        run: npm run dist:win:portable
+        run: npm run dist:win:portable -- --publish never
 
       - name: Upload release artifacts
         uses: actions/upload-artifact@v4
@@ -101,15 +101,15 @@ jobs:
 
       - name: Build full macOS release artifacts
         if: ${{ inputs.artifact_set == 'full' }}
-        run: npm run dist:mac
+        run: npm run dist:mac -- --publish never
 
       - name: Build installable macOS release artifacts
         if: ${{ inputs.artifact_set == 'installer' }}
-        run: npm run dist:mac:installer
+        run: npm run dist:mac:installer -- --publish never
 
       - name: Build portable macOS release artifacts
         if: ${{ inputs.artifact_set == 'portable' }}
-        run: npm run dist:mac:portable
+        run: npm run dist:mac:portable -- --publish never
 
       - name: Upload release artifacts
         uses: actions/upload-artifact@v4
@@ -141,15 +141,15 @@ jobs:
 
       - name: Build full Linux release artifacts
         if: ${{ inputs.artifact_set == 'full' }}
-        run: npm run dist:linux
+        run: npm run dist:linux -- --publish never
 
       - name: Build installable Linux release artifacts
         if: ${{ inputs.artifact_set == 'installer' }}
-        run: npm run dist:linux:installer
+        run: npm run dist:linux:installer -- --publish never
 
       - name: Build portable Linux release artifacts
         if: ${{ inputs.artifact_set == 'portable' }}
-        run: npm run dist:linux:portable
+        run: npm run dist:linux:portable -- --publish never
 
       - name: Upload release artifacts
         uses: actions/upload-artifact@v4
