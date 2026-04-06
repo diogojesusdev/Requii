@@ -3,6 +3,7 @@
     "private": true,
     "version": "0.1.0",
     "type": "module",
+    "author": "Diogo Jesus",
     "description": "Local-first API client built with Electron, React, Tailwind, Axios, and the host file system.",
     "main": "dist-electron/electron/main.cjs",
     "scripts": {
@@ -12,9 +13,9 @@
         "build:electron": "tsc -p tsconfig.electron.json",
         "build": "npm run build:electron && npm run typecheck:app && vite build",
         "start": "npm run build:electron && electron .",
-        "dist:win": "npm run build && electron-builder --win nsis portable msi",
-        "dist:win:installer": "npm run build && electron-builder --win nsis msi",
-        "dist:win:portable": "npm run build && electron-builder --win portable",
+        "dist:win": "npm run build && powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/build-windows.ps1 all",
+        "dist:win:installer": "npm run build && powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/build-windows.ps1 installer",
+        "dist:win:portable": "npm run build && powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/build-windows.ps1 portable",
         "dist:portable": "npm run dist:win:portable",
         "dist:mac": "npm run build && electron-builder --mac dmg pkg zip",
         "dist:mac:installer": "npm run build && electron-builder --mac dmg pkg",
@@ -39,6 +40,7 @@
             "package.json"
         ],
         "win": {
+            "icon": "build/icon.ico",
             "signAndEditExecutable": false,
             "target": [
                 {
