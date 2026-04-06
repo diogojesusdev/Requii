@@ -240,6 +240,18 @@ jobs:
     permissions:
       contents: write
     steps:
+      - name: Detect existing GitHub Release
+        id: release-state
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if gh release view "${{ needs.prepare-release.outputs.release_tag }}" >/dev/null 2>&1; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Download built artifacts
         uses: actions/download-artifact@v4
         with:
@@ -266,6 +278,6 @@ jobs:
           name: ${{ needs.prepare-release.outputs.release_name }}
           target_commitish: ${{ inputs.ref }}
           prerelease: ${{ inputs.prerelease }}
-          generate_release_notes: true
+          generate_release_notes: ${{ steps.release-state.outputs.exists != 'true' }}
           files: |
             release-assets/*
