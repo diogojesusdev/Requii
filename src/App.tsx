@@ -2733,7 +2733,7 @@ function EnvironmentAutocompleteField({ as = 'input', variableNames = [], variab
     const hasStaticSuggestions = firstEnvironmentSuggestionIndex > 0;
     const isOpen = isFocused && !suppressAutoOpen && suggestions.length > 0 && Boolean(context) && (manualOpen || context.query.length >= ENV_AUTOCOMPLETE_MIN_LENGTH);
     const canShowHoverPreview = interpolationMatches.length > 0;
-    const shouldRenderStyledOverlay = interpolationMatches.length > 0;
+    const shouldRenderStyledOverlay = interpolationMatches.length > 0 && !isFocused;
     const inputClassName = shouldRenderStyledOverlay ? `${className} env-field env-field__input` : `${className} env-field`;
     useEffect(() => {
         if (highlightedIndex >= visibleSuggestions.length) {
