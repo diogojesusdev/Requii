@@ -56,23 +56,20 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Select build command
-        id: build-command
+      - name: Build full Windows release artifacts
+        if: ${{ inputs.artifact_set == 'full' }}
         shell: pwsh
-        run: |
-          $artifactSet = '${{ inputs.artifact_set }}'
+        run: npm run dist:win
 
-          $command = switch ($artifactSet) {
-            'installer' { 'npm run dist:win:installer' }
-            'portable' { 'npm run dist:win:portable' }
-            default { 'npm run dist:win' }
-          }
-
-          "command=$command" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
-
-      - name: Build release artifacts
+      - name: Build installable Windows release artifacts
+        if: ${{ inputs.artifact_set == 'installer' }}
         shell: pwsh
-        run: ${{ steps.build-command.outputs.command }}
+        run: npm run dist:win:installer
+
+      - name: Build portable Windows release artifacts
+        if: ${{ inputs.artifact_set == 'portable' }}
+        shell: pwsh
+        run: npm run dist:win:portable
 
       - name: Upload release artifacts
         uses: actions/upload-artifact@v4
@@ -102,23 +99,17 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Select build command
-        id: build-command
-        shell: pwsh
-        run: |
-          $artifactSet = '${{ inputs.artifact_set }}'
+      - name: Build full macOS release artifacts
+        if: ${{ inputs.artifact_set == 'full' }}
+        run: npm run dist:mac
 
-          $command = switch ($artifactSet) {
-            'installer' { 'npm run dist:mac:installer' }
-            'portable' { 'npm run dist:mac:portable' }
-            default { 'npm run dist:mac' }
-          }
+      - name: Build installable macOS release artifacts
+        if: ${{ inputs.artifact_set == 'installer' }}
+        run: npm run dist:mac:installer
 
-          "command=$command" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
-
-      - name: Build release artifacts
-        shell: pwsh
-        run: ${{ steps.build-command.outputs.command }}
+      - name: Build portable macOS release artifacts
+        if: ${{ inputs.artifact_set == 'portable' }}
+        run: npm run dist:mac:portable
 
       - name: Upload release artifacts
         uses: actions/upload-artifact@v4
@@ -148,23 +139,17 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Select build command
-        id: build-command
-        shell: pwsh
-        run: |
-          $artifactSet = '${{ inputs.artifact_set }}'
+      - name: Build full Linux release artifacts
+        if: ${{ inputs.artifact_set == 'full' }}
+        run: npm run dist:linux
 
-          $command = switch ($artifactSet) {
-            'installer' { 'npm run dist:linux:installer' }
-            'portable' { 'npm run dist:linux:portable' }
-            default { 'npm run dist:linux' }
-            }
+      - name: Build installable Linux release artifacts
+        if: ${{ inputs.artifact_set == 'installer' }}
+        run: npm run dist:linux:installer
 
-          "command=$command" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
-
-      - name: Build release artifacts
-        shell: pwsh
-        run: ${{ steps.build-command.outputs.command }}
+      - name: Build portable Linux release artifacts
+        if: ${{ inputs.artifact_set == 'portable' }}
+        run: npm run dist:linux:portable
 
       - name: Upload release artifacts
         uses: actions/upload-artifact@v4
