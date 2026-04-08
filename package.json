@@ -1,7 +1,7 @@
 {
     "name": "requii",
-    "private": true,
     "version": "0.1.0",
+    "license": "MIT",
     "type": "module",
     "description": "Local-first API client built with Electron, React, Tailwind, Axios, and the host file system.",
     "main": "dist-electron/electron/main.cjs",
