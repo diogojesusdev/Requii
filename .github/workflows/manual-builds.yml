@@ -32,14 +32,74 @@ on:
         required: true
         default: true
         type: boolean
+      create_github_release:
+        description: Create or update a GitHub Release with the built artifacts
+        required: true
+        default: true
+        type: boolean
+      release_tag:
+        description: Release tag to create or update (defaults to v<package version>)
+        required: false
+        default: ''
+        type: string
+      release_name:
+        description: Release name to create or update (defaults to Requii v<package version>)
+        required: false
+        default: ''
+        type: string
+      prerelease:
+        description: Mark the GitHub Release as a prerelease
+        required: true
+        default: false
+        type: boolean
 
 permissions:
   contents: read
 
 jobs:
+  prepare-release:
+    name: Prepare Release Metadata
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.metadata.outputs.version }}
+      release_tag: ${{ steps.metadata.outputs.release_tag }}
+      release_name: ${{ steps.metadata.outputs.release_name }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Compute release metadata
+        id: metadata
+        shell: bash
+        run: |
+          VERSION=$(node -p "JSON.parse(require('fs').readFileSync('package.json', 'utf8')).version")
+          if [ -n "${{ inputs.release_tag }}" ]; then
+            RELEASE_TAG="${{ inputs.release_tag }}"
+          else
+            RELEASE_TAG="v${VERSION}"
+          fi
+
+          if [ -n "${{ inputs.release_name }}" ]; then
+            RELEASE_NAME="${{ inputs.release_name }}"
+          else
+            RELEASE_NAME="Requii v${VERSION}"
+          fi
+
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "release_tag=${RELEASE_TAG}" >> "$GITHUB_OUTPUT"
+          echo "release_name=${RELEASE_NAME}" >> "$GITHUB_OUTPUT"
+
   build-windows:
     name: Windows / ${{ inputs.artifact_set }}
     runs-on: windows-latest
+    needs: prepare-release
     if: ${{ inputs.build_windows }}
     steps:
       - name: Check out repository
@@ -56,36 +116,35 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Select build command
-        id: build-command
+      - name: Build full Windows release artifacts
+        if: ${{ inputs.artifact_set == 'full' }}
         shell: pwsh
-        run: |
-          $artifactSet = '${{ inputs.artifact_set }}'
+        run: npm run dist:win -- --publish never
 
-          $command = switch ($artifactSet) {
-            'installer' { 'npm run dist:win:installer' }
-            'portable' { 'npm run dist:win:portable' }
-            default { 'npm run dist:win' }
-          }
-
-          "command=$command" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
-
-      - name: Build release artifacts
+      - name: Build installable Windows release artifacts
+        if: ${{ inputs.artifact_set == 'installer' }}
         shell: pwsh
-        run: ${{ steps.build-command.outputs.command }}
+        run: npm run dist:win:installer -- --publish never
+
+      - name: Build portable Windows release artifacts
+        if: ${{ inputs.artifact_set == 'portable' }}
+        shell: pwsh
+        run: npm run dist:win:portable -- --publish never
 
       - name: Upload release artifacts
         uses: actions/upload-artifact@v4
         with:
           name: requii-windows-${{ inputs.artifact_set }}
           path: |
-            release/**/*
+            release/*.exe
+            release/*.msi
           if-no-files-found: error
           retention-days: 14
 
   build-macos:
     name: macOS / ${{ inputs.artifact_set }}
     runs-on: macos-latest
+    needs: prepare-release
     if: ${{ inputs.build_macos }}
     steps:
       - name: Check out repository
@@ -102,36 +161,33 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Select build command
-        id: build-command
-        shell: pwsh
-        run: |
-          $artifactSet = '${{ inputs.artifact_set }}'
+      - name: Build full macOS release artifacts
+        if: ${{ inputs.artifact_set == 'full' }}
+        run: npm run dist:mac -- --publish never
 
-          $command = switch ($artifactSet) {
-            'installer' { 'npm run dist:mac:installer' }
-            'portable' { 'npm run dist:mac:portable' }
-            default { 'npm run dist:mac' }
-          }
+      - name: Build installable macOS release artifacts
+        if: ${{ inputs.artifact_set == 'installer' }}
+        run: npm run dist:mac:installer -- --publish never
 
-          "command=$command" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
-
-      - name: Build release artifacts
-        shell: pwsh
-        run: ${{ steps.build-command.outputs.command }}
+      - name: Build portable macOS release artifacts
+        if: ${{ inputs.artifact_set == 'portable' }}
+        run: npm run dist:mac:portable -- --publish never
 
       - name: Upload release artifacts
         uses: actions/upload-artifact@v4
         with:
           name: requii-macos-${{ inputs.artifact_set }}
           path: |
-            release/**/*
+            release/*.dmg
+            release/*.pkg
+            release/*.zip
           if-no-files-found: error
           retention-days: 14
 
   build-linux:
     name: Linux / ${{ inputs.artifact_set }}
     runs-on: ubuntu-latest
+    needs: prepare-release
     if: ${{ inputs.build_linux }}
     steps:
       - name: Check out repository
@@ -148,29 +204,80 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Select build command
-        id: build-command
-        shell: pwsh
-        run: |
-          $artifactSet = '${{ inputs.artifact_set }}'
+      - name: Build full Linux release artifacts
+        if: ${{ inputs.artifact_set == 'full' }}
+        run: npm run dist:linux -- --publish never
 
-          $command = switch ($artifactSet) {
-            'installer' { 'npm run dist:linux:installer' }
-            'portable' { 'npm run dist:linux:portable' }
-            default { 'npm run dist:linux' }
-            }
+      - name: Build installable Linux release artifacts
+        if: ${{ inputs.artifact_set == 'installer' }}
+        run: npm run dist:linux:installer -- --publish never
 
-          "command=$command" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
-
-      - name: Build release artifacts
-        shell: pwsh
-        run: ${{ steps.build-command.outputs.command }}
+      - name: Build portable Linux release artifacts
+        if: ${{ inputs.artifact_set == 'portable' }}
+        run: npm run dist:linux:portable -- --publish never
 
       - name: Upload release artifacts
         uses: actions/upload-artifact@v4
         with:
           name: requii-linux-${{ inputs.artifact_set }}
           path: |
-            release/**/*
+            release/*.AppImage
+            release/*.deb
+            release/*.rpm
+            release/*.tar.gz
           if-no-files-found: error
           retention-days: 14
+
+  publish-release:
+    name: Publish GitHub Release
+    runs-on: ubuntu-latest
+    needs:
+      - prepare-release
+      - build-windows
+      - build-macos
+      - build-linux
+    if: ${{ always() && !cancelled() && inputs.create_github_release && (inputs.build_windows || inputs.build_macos || inputs.build_linux) && (needs.build-windows.result == 'success' || needs.build-windows.result == 'skipped') && (needs.build-macos.result == 'success' || needs.build-macos.result == 'skipped') && (needs.build-linux.result == 'success' || needs.build-linux.result == 'skipped') }}
+    permissions:
+      contents: write
+    steps:
+      - name: Detect existing GitHub Release
+        id: release-state
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if gh release view "${{ needs.prepare-release.outputs.release_tag }}" >/dev/null 2>&1; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Download built artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: requii-*-${{ inputs.artifact_set }}
+          path: release-assets
+          merge-multiple: true
+
+      - name: Verify release assets
+        shell: bash
+        run: |
+          shopt -s nullglob
+          files=(release-assets/*)
+          if [ ${#files[@]} -eq 0 ]; then
+            echo "No release assets were downloaded."
+            exit 1
+          fi
+          printf 'Publishing release assets:\n'
+          printf ' - %s\n' "${files[@]}"
+
+      - name: Create or update GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.prepare-release.outputs.release_tag }}
+          name: ${{ needs.prepare-release.outputs.release_name }}
+          target_commitish: ${{ inputs.ref }}
+          prerelease: ${{ inputs.prerelease }}
+          generate_release_notes: ${{ steps.release-state.outputs.exists != 'true' }}
+          files: |
+            release-assets/*

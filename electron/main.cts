@@ -18,6 +18,10 @@ const INSOMNIA_RUNTIME_ENV_PREFIX = '__INSOMNIA_ENV__';
 const WINDOWS_APP_ID = 'com.requii.app';
 const MIN_ZOOM_LEVEL = -3;
 const MAX_ZOOM_LEVEL = 8;
+const INSECURE_HTTPS_AGENT = new https.Agent({ rejectUnauthorized: false });
+
+app.commandLine.appendSwitch('ignore-certificate-errors');
+process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
 
 function serializeWindowState(window) {
     return {
@@ -1719,7 +1723,7 @@ async function performOAuth2TokenRequest(requestConfig) {
         url: requestConfig.url,
         data: requestConfig.body.toString(),
         headers: requestConfig.headers,
-        httpsAgent: new https.Agent({ rejectUnauthorized: false }),
+        httpsAgent: INSECURE_HTTPS_AGENT,
         validateStatus: () => true,
     });
 }
@@ -2743,6 +2747,7 @@ ipcMain.handle('request:execute', async (_, { request, activeEnvironment }) => {
             url: finalUrl,
             headers,
             data,
+            httpsAgent: INSECURE_HTTPS_AGENT,
             validateStatus: () => true,
         });
 
