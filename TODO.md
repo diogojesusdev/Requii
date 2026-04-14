@@ -1,0 +1,2 @@
+- allow file uploads as fields of JSON body
+- allow searching for text in the URL, not just for request names (would make it easier to find a specific request if we know part of the endpoint)
