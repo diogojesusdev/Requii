@@ -199,6 +199,25 @@ function FolderDropGap({ isVisible = false, isActive, folderPath = '', insertInd
     );
 }
 
+function extractUrlPath(url: string): string {
+    if (!url) return '';
+    const trimmed = url.trim();
+    if (!trimmed) return '';
+    if (trimmed.startsWith('/')) return trimmed;
+    // Remove protocol (e.g. https://)
+    let rest = trimmed.replace(/^[a-zA-Z][a-zA-Z0-9+.-]*:\/\//, '');
+    // If host is a template variable like {{base_url}}, skip past }}
+    if (rest.startsWith('{{')) {
+        const closeIdx = rest.indexOf('}}');
+        if (closeIdx === -1) return '';
+        rest = rest.slice(closeIdx + 2);
+    }
+    // Strip host (and optional port) — everything up to the first /
+    rest = rest.replace(/^[^/]+/, '');
+    if (!rest || rest === '/') return '';
+    return rest;
+}
+
 function RequestDropGap({ isVisible = false, isActive, folderPath = '', insertIndex = 0, label = '' }) {
     if (!isVisible) {
         return null;
@@ -221,6 +240,7 @@ function RequestDropGap({ isVisible = false, isActive, folderPath = '', insertIn
 function RequestTreeRow({ request, requestFolderPath = '', isActive, isDragging, requestDropTarget, onOpenRequest, onRenameRequest, onDeleteRequest, onDuplicateRequest, onRequestDragStart, onRequestDragEnd, onRequestDragOverRequest, onRequestDropOnRequest }) {
     const [isEditing, setIsEditing] = useState(false);
     const [draftName, setDraftName] = useState(request.name);
+    const urlPath = extractUrlPath(request.url);
     const [contextMenu, setContextMenu] = useState(null);
     const rowRef = useRef(null);
     const isDropBefore = requestDropTarget?.type === 'request' && requestDropTarget.requestId === request.id && requestDropTarget.position === 'before';
@@ -284,7 +304,7 @@ function RequestTreeRow({ request, requestFolderPath = '', isActive, isDragging,
     return (
         <div
             ref={rowRef}
-            className={`relative flex items-center gap-0.5 rounded-lg px-2 py-1 transition-all duration-150 ${isActive ? 'bg-[#7d674b] text-paper shadow-[inset_0_1px_0_rgba(255,244,220,0.1)]' : 'bg-[#e7dac4]/82 text-ink hover:bg-[#efe2cc]'} ${isDragging ? 'scale-[0.98] opacity-35' : ''}`}
+            className={`group relative flex items-center gap-0.5 rounded-lg px-2 py-1 transition-all duration-150 ${isActive ? 'bg-[#7d674b] text-paper shadow-[inset_0_1px_0_rgba(255,244,220,0.1)]' : 'bg-[#e7dac4]/82 text-ink hover:bg-[#efe2cc]'} ${isDragging ? 'scale-[0.98] opacity-35' : ''}`}
             style={isDragging ? { transform: 'scale(0.98)' } : undefined}
             data-folder-drop-type="folder-via-request"
             data-folder-path={requestFolderPath}
@@ -310,30 +330,35 @@ function RequestTreeRow({ request, requestFolderPath = '', isActive, isDragging,
             >
                 <DragHandleIcon />
             </button>
-            <button className="flex min-w-0 flex-1 items-center gap-2 text-left" onClick={() => onOpenRequest(request.id)} draggable={false}>
-                <span className="shrink-0 text-[11px] font-semibold tracking-wide ml-1 opacity-70">{request.method}</span>
-                {isEditing ? (
-                    <input
-                        autoFocus
-                        className={`w-full rounded-lg border px-2 py-1 text-sm font-medium outline-none ${isActive ? 'border-black/20 bg-black/10 text-paper' : 'border-black/10 bg-[#ece0cb] text-ink'}`}
-                        value={draftName}
-                        spellCheck={false}
-                        onChange={(event) => setDraftName(event.target.value)}
-                        onClick={(event) => event.stopPropagation()}
-                        onBlur={saveName}
-                        onKeyDown={(event) => {
-                            if (event.key === 'Enter') {
-                                saveName();
-                            }
-                            if (event.key === 'Escape') {
-                                event.preventDefault();
-                                cancelEditing();
-                            }
-                        }}
-                    />
-                ) : (
-                    <span className="truncate font-medium">{request.name}</span>
-                )}
+            <button className="flex min-w-0 flex-1 flex-col items-start text-left" onClick={() => onOpenRequest(request.id)} draggable={false}>
+                <div className="flex w-full items-center gap-2">
+                    <span className="shrink-0 text-[11px] font-semibold tracking-wide ml-1 opacity-70">{request.method}</span>
+                    {isEditing ? (
+                        <input
+                            autoFocus
+                            className={`w-full rounded-lg border px-2 py-1 text-sm font-medium outline-none ${isActive ? 'border-black/20 bg-black/10 text-paper' : 'border-black/10 bg-[#ece0cb] text-ink'}`}
+                            value={draftName}
+                            spellCheck={false}
+                            onChange={(event) => setDraftName(event.target.value)}
+                            onClick={(event) => event.stopPropagation()}
+                            onBlur={saveName}
+                            onKeyDown={(event) => {
+                                if (event.key === 'Enter') {
+                                    saveName();
+                                }
+                                if (event.key === 'Escape') {
+                                    event.preventDefault();
+                                    cancelEditing();
+                                }
+                            }}
+                        />
+                    ) : (
+                        <span className="truncate font-medium">{request.name}</span>
+                    )}
+                </div>
+                {urlPath && !isEditing ? (
+                    <span className="hidden group-hover:block truncate w-full pl-1 mt-0.5 text-[10px] font-mono opacity-55">{urlPath}</span>
+                ) : null}
             </button>
             <div className="ml-0.5 flex items-center gap-0.5">
                 <button
