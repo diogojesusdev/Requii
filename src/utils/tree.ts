@@ -69,9 +69,9 @@ export function buildTree(folders, requests) {
     return root;
 }
 
-export function filterTree(node, searchTerm, urlSearchTerm = '') {
-    const tokens = Array.isArray(searchTerm) ? searchTerm : tokenizeSearchTerm(searchTerm);
-    const urlTokens = Array.isArray(urlSearchTerm) ? urlSearchTerm : tokenizeSearchTerm(urlSearchTerm);
+export function filterTree(node, searchTerm: string | string[], urlSearchTerm: string | string[] = '') {
+    const tokens: string[] = Array.isArray(searchTerm) ? searchTerm : tokenizeSearchTerm(searchTerm);
+    const urlTokens: string[] = Array.isArray(urlSearchTerm) ? urlSearchTerm : tokenizeSearchTerm(urlSearchTerm);
 
     if (tokens.length === 0 && urlTokens.length === 0) {
         return node;
