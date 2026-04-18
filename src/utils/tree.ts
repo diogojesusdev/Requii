@@ -69,14 +69,19 @@ export function buildTree(folders, requests) {
     return root;
 }
 
-export function filterTree(node, searchTerm) {
+export function filterTree(node, searchTerm, urlSearchTerm = '') {
     const tokens = Array.isArray(searchTerm) ? searchTerm : tokenizeSearchTerm(searchTerm);
-    if (tokens.length === 0) {
+    const urlTokens = Array.isArray(urlSearchTerm) ? urlSearchTerm : tokenizeSearchTerm(urlSearchTerm);
+
+    if (tokens.length === 0 && urlTokens.length === 0) {
         return node;
     }
 
-    const folders = node.folders.map((folder) => filterTree(folder, tokens)).filter(Boolean);
-    const requests = node.requests.filter((request) => matchesSearchTokens(tokens, request.name, request.path));
+    const folders = node.folders.map((folder) => filterTree(folder, tokens, urlTokens)).filter(Boolean);
+    const requests = node.requests.filter((request) =>
+        matchesSearchTokens(tokens, request.name, request.path) &&
+        matchesSearchTokens(urlTokens, request.url),
+    );
     const folderMatches = matchesSearchTokens(tokens, node.name, node.path);
 
     if (!node.path) {
@@ -88,11 +93,23 @@ export function filterTree(node, searchTerm) {
     }
 
     if (folderMatches) {
-        return {
-            ...node,
-            folders: [],
-            requests: collectNestedRequests(node),
-        };
+        const filteredNested = collectNestedRequests(node).filter((request) =>
+            matchesSearchTokens(urlTokens, request.url),
+        );
+
+        if (filteredNested.length > 0) {
+            return {
+                ...node,
+                folders: [],
+                requests: filteredNested,
+            };
+        }
+
+        if (urlTokens.length === 0) {
+            return { ...node, folders: [], requests: [] };
+        }
+
+        return null;
     }
 
     if (folders.length > 0 || requests.length > 0) {

@@ -5,7 +5,7 @@ import { EditorTabBar } from './components/EditorTabBar';
 import { RequestTabs } from './components/RequestTabs';
 import { ResponseBodyDialog, ResponseTabs } from './components/ResponseTabs';
 import { TreeSection } from './components/RequestTree';
-import { BeautifyIcon, ChevronDownIcon, CloseIcon, DragHandleIcon, ExpandIcon, ExportIcon, FolderIcon, ImportIcon, InvalidStatusIcon, MaximizeIcon, MinimizeIcon, NewFolderIcon, NewRequestIcon, NewWorkspaceIcon, OpenFolderIcon, PencilIcon, RequestIcon, RestoreIcon, SearchIcon, TerminalIcon, TrashIcon, ValidStatusIcon } from './components/icons';
+import { BeautifyIcon, ChevronDownIcon, CloseIcon, DragHandleIcon, ExpandIcon, ExportIcon, FolderIcon, ImportIcon, InvalidStatusIcon, LinkIcon, MaximizeIcon, MinimizeIcon, NewFolderIcon, NewRequestIcon, NewWorkspaceIcon, OpenFolderIcon, PencilIcon, RequestIcon, RestoreIcon, SearchIcon, TerminalIcon, TrashIcon, ValidStatusIcon } from './components/icons';
 import {
     COMMON_HEADER_KEY_SUGGESTIONS,
     COMMON_HEADER_VALUE_SUGGESTIONS,
@@ -163,6 +163,7 @@ function App() {
     const [responseTabById, setResponseTabById] = useState({});
     const [expandedFolderPaths, setExpandedFolderPaths] = useState([]);
     const [treeFilter, setTreeFilter] = useState('');
+    const [urlFilter, setUrlFilter] = useState('');
     const [status, setStatus] = useState('Preparing workspace...');
     const [isBusy, setIsBusy] = useState(false);
     const [isWorkspaceReady, setIsWorkspaceReady] = useState(false);
@@ -209,7 +210,7 @@ function App() {
         [activeEnvironment, activeEnvironmentVariables, baseEnvironment?.id, normalizedEnvironments.active_environment_id],
     );
     const tree = useMemo(() => buildTree(folders, requests), [folders, requests]);
-    const filteredTree = useMemo(() => filterTree(tree, treeFilter), [tree, treeFilter]);
+    const filteredTree = useMemo(() => filterTree(tree, treeFilter, urlFilter), [tree, treeFilter, urlFilter]);
     const expandedFolderPathSet = useMemo(() => new Set(expandedFolderPaths), [expandedFolderPaths]);
 
     function getTabSequence(currentTabs = tabs, currentActiveRequestId = activeRequestId) {
@@ -466,6 +467,7 @@ function App() {
                     response_tab_by_id: responseTabById,
                     expanded_folder_paths: expandedFolderPaths,
                     tree_filter: treeFilter,
+                    url_filter: urlFilter,
                 })
                 .catch(() => {
                     // Ignore persistence failures and keep the current session usable.
@@ -473,7 +475,7 @@ function App() {
         }, 150);
 
         return () => window.clearTimeout(timer);
-    }, [workspaceId, isWorkspaceReady, tabs, activeRequestId, requestEditorTabById, responseTabById, expandedFolderPaths, treeFilter]);
+    }, [workspaceId, isWorkspaceReady, tabs, activeRequestId, requestEditorTabById, responseTabById, expandedFolderPaths, treeFilter, urlFilter]);
 
     useEffect(() => {
         const target = pendingTreeRevealRef.current;
@@ -503,7 +505,8 @@ function App() {
 
     useEffect(() => {
         const normalizedFilter = treeFilter.trim();
-        if (!normalizedFilter) {
+        const normalizedUrlFilter = urlFilter.trim();
+        if (!normalizedFilter && !normalizedUrlFilter) {
             return;
         }
 
@@ -516,7 +519,7 @@ function App() {
             const nextPaths = [...new Set([...previous, ...visibleFolderPaths])];
             return nextPaths.length === previous.length ? previous : nextPaths;
         });
-    }, [filteredTree, treeFilter]);
+    }, [filteredTree, treeFilter, urlFilter]);
 
     useEffect(() => {
         try {
@@ -714,6 +717,7 @@ function App() {
         setExpandedFolderPaths(nextExpandedFolderPaths);
         setResponses((previous) => Object.fromEntries(Object.entries(previous).filter(([requestId]) => nextRequestIds.has(requestId))));
         setTreeFilter(typeof nextUiState.tree_filter === 'string' ? nextUiState.tree_filter : '');
+        setUrlFilter(typeof nextUiState.url_filter === 'string' ? nextUiState.url_filter : '');
     }
 
     function toggleFolderExpansion(folderPath, nextExpanded) {
@@ -1879,7 +1883,6 @@ function App() {
             <header className="app-drag-region flex h-11 items-center justify-between border-b border-black/10 bg-[#8f7b60] px-3 text-ink">
                 <div className="min-w-0">
                     <div className="flex items-center gap-1.5">
-                        <img src="/requii_logo.png" alt="" className="h-4 w-4 shrink-0" />
                         <p className="truncate text-sm font-bold tracking-[0.08em]">Requii</p>
                     </div>
                     <p className="truncate text-[11px] text-ink/60">Workspace: {workspaceName || 'Workspace'}</p>
@@ -1990,6 +1993,17 @@ function App() {
 
                     <div className="relative z-10 border-b border-black/8 px-4 py-3">
                         <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.18em] text-ink/45">Filter</label>
+                        <div className="relative z-10 mb-2">
+                            <span className="pointer-events-none absolute left-3 top-1/2 z-10 -translate-y-1/2 text-ink/35">
+                                <LinkIcon />
+                            </span>
+                            <input className="field pl-9 pr-10" value={urlFilter} onChange={(event) => setUrlFilter(event.target.value)} placeholder="Filter by URL" spellCheck={false} />
+                            {urlFilter ? (
+                                <button className="icon-action-button absolute right-1.5 top-1/2 z-10 h-7 w-7 -translate-y-1/2 border-transparent bg-transparent text-ink/55 hover:bg-black/[0.05]" onClick={() => setUrlFilter('')} title="Clear URL filter" type="button">
+                                    <CloseIcon />
+                                </button>
+                            ) : null}
+                        </div>
                         <div className="relative z-10">
                             <span className="pointer-events-none absolute left-3 top-1/2 z-10 -translate-y-1/2 text-ink/35">
                                 <SearchIcon />
@@ -2024,7 +2038,7 @@ function App() {
                                 <p className="mt-1">Create one or import an existing workspace.</p>
                             </div>
                         ) : (
-                            <TreeSection node={filteredTree || { folders: [], requests: [] }} activeRequestId={activeRequestId} onOpenRequest={openRequest} onRenameRequest={renameRequestFromTree} onDeleteRequest={deleteRequest} onDuplicateRequest={duplicateRequest} onCreateFolder={(path) => openComposer('folder', path)} onCreateRequest={(path) => openComposer('request', path)} onDeleteFolder={deleteFolder} onRenameFolder={renameFolder} draggedRequestId={draggedRequestId} requestDropTarget={requestDropTarget} onRequestDragStart={startRequestDrag} onRequestDragEnd={clearRequestDrag} onRequestDragOverFolder={handleRequestDragOverFolder} onRequestDragOverRequest={handleRequestDragOverRequest} onRequestDragOverGap={handleRequestDragOverGap} onRequestDropOnFolder={handleRequestDropOnFolder} onRequestDropOnRequest={handleRequestDropOnRequest} onRequestDropOnGap={handleRequestDropOnGap} draggedFolderPath={draggedFolderPath} folderDropTarget={folderDropTarget} onFolderDragStart={startFolderDrag} onFolderDragEnd={clearFolderDrag} expandedFolderPathSet={expandedFolderPathSet} onToggleFolder={toggleFolderExpansion} emptyMessage={treeFilter ? 'No folders or requests match this filter.' : 'This folder is empty.'} />
+                            <TreeSection node={filteredTree || { folders: [], requests: [] }} activeRequestId={activeRequestId} onOpenRequest={openRequest} onRenameRequest={renameRequestFromTree} onDeleteRequest={deleteRequest} onDuplicateRequest={duplicateRequest} onCreateFolder={(path) => openComposer('folder', path)} onCreateRequest={(path) => openComposer('request', path)} onDeleteFolder={deleteFolder} onRenameFolder={renameFolder} draggedRequestId={draggedRequestId} requestDropTarget={requestDropTarget} onRequestDragStart={startRequestDrag} onRequestDragEnd={clearRequestDrag} onRequestDragOverFolder={handleRequestDragOverFolder} onRequestDragOverRequest={handleRequestDragOverRequest} onRequestDragOverGap={handleRequestDragOverGap} onRequestDropOnFolder={handleRequestDropOnFolder} onRequestDropOnRequest={handleRequestDropOnRequest} onRequestDropOnGap={handleRequestDropOnGap} draggedFolderPath={draggedFolderPath} folderDropTarget={folderDropTarget} onFolderDragStart={startFolderDrag} onFolderDragEnd={clearFolderDrag} expandedFolderPathSet={expandedFolderPathSet} onToggleFolder={toggleFolderExpansion} emptyMessage={(treeFilter || urlFilter) ? 'No folders or requests match this filter.' : 'This folder is empty.'} />
                         )}
                     </div>
 
