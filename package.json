@@ -34,10 +34,21 @@
         "directories": {
             "output": "release"
         },
+        "afterPack": "./scripts/electron-builder-after-pack.cjs",
         "files": [
             "dist/**/*",
             "dist-electron/**/*",
             "package.json"
+        ],
+        "extraResources": [
+            {
+                "from": "build/icon.ico",
+                "to": "icon.ico"
+            },
+            {
+                "from": "build/icon.png",
+                "to": "icon.png"
+            }
         ],
         "win": {
             "icon": "build/icon.ico",
@@ -93,6 +104,7 @@
         },
         "linux": {
             "maintainer": "Diogo Jesus",
+            "icon": "build/icon.png",
             "category": "Development",
             "target": [
                 {
@@ -130,7 +142,10 @@
             "createDesktopShortcut": true,
             "createStartMenuShortcut": true,
             "runAfterFinish": true,
-            "shortcutName": "Requii"
+            "shortcutName": "Requii",
+            "installerIcon": "build/icon.ico",
+            "uninstallerIcon": "build/icon.ico",
+            "installerHeaderIcon": "build/icon.ico"
         },
         "portable": {
             "artifactName": "${productName}-${version}-windows-${arch}-portable.${ext}"
@@ -157,6 +172,7 @@
         "cross-env": "^7.0.3",
         "electron": "^35.0.1",
         "electron-builder": "^25.1.8",
+        "rcedit": "^5.0.2",
         "monaco-editor": "^0.55.1",
         "postcss": "^8.5.3",
         "react": "^19.1.0",

@@ -1,5 +1,6 @@
 const { app, BrowserWindow, dialog, ipcMain, shell } = require('electron');
 const path = require('path');
+const fsSync = require('fs');
 const fs = require('fs/promises');
 const https = require('https');
 const axios = require('axios');
@@ -2245,6 +2246,21 @@ function installZoomShortcuts(mainWindow) {
 }
 
 async function createWindow() {
+    const packagedResourcesPath = path.join(path.dirname(process.execPath), 'resources');
+    const iconPath = process.platform === 'linux'
+        ? (app.isPackaged
+            ? path.join(packagedResourcesPath, 'icon.png')
+            : path.join(__dirname, '../../build/icon.png'))
+        : process.platform === 'win32'
+            ? (app.isPackaged
+                ? path.join(packagedResourcesPath, 'icon.ico')
+                : path.join(__dirname, '../../build/icon.ico'))
+            : null;
+
+    if (iconPath && !fsSync.existsSync(iconPath)) {
+        console.warn(`[icons] Window icon file not found: ${iconPath}`);
+    }
+
     const mainWindow = new BrowserWindow({
         width: 1560,
         height: 980,
@@ -2254,6 +2270,7 @@ async function createWindow() {
         frame: false,
         autoHideMenuBar: true,
         show: false,
+        icon: iconPath && fsSync.existsSync(iconPath) ? iconPath : undefined,
         webPreferences: {
             preload: path.join(__dirname, 'preload.cjs'),
             contextIsolation: true,

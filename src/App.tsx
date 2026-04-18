@@ -1878,7 +1878,10 @@ function App() {
         <div className="flex h-screen flex-col overflow-hidden bg-[#a9997f] text-ink">
             <header className="app-drag-region flex h-11 items-center justify-between border-b border-black/10 bg-[#8f7b60] px-3 text-ink">
                 <div className="min-w-0">
-                    <p className="truncate text-sm font-bold tracking-[0.08em]">Requii</p>
+                    <div className="flex items-center gap-1.5">
+                        <img src="/requii_logo.png" alt="" className="h-4 w-4 shrink-0" />
+                        <p className="truncate text-sm font-bold tracking-[0.08em]">Requii</p>
+                    </div>
                     <p className="truncate text-[11px] text-ink/60">Workspace: {workspaceName || 'Workspace'}</p>
                 </div>
                 <div className="app-no-drag flex items-center gap-1.5">
