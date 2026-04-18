@@ -208,7 +208,15 @@ function normalizeBodyShape(body) {
         };
     }
 
-    if (normalizedType === 'raw' || normalizedType === 'text' || normalizedType === 'xml' || normalizedType === 'form' || normalizedType === 'formdata' || normalizedType === 'multipart') {
+    if (normalizedType === 'multipart') {
+        return {
+            type: 'multipart',
+            content: '',
+            fields: Array.isArray(body?.fields) ? body.fields : [],
+        };
+    }
+
+    if (normalizedType === 'raw' || normalizedType === 'text' || normalizedType === 'xml' || normalizedType === 'form' || normalizedType === 'formdata') {
         return {
             type: content ? 'raw' : 'none',
             content,
@@ -2064,6 +2072,47 @@ function resolveRequestBody(body, variables, method) {
     const bodyType = String(body?.type || '').trim().toLowerCase();
     const content = typeof body?.content === 'string' ? interpolateValue(body.content, variables) : '';
 
+    if (bodyType === 'multipart') {
+        const fields = Array.isArray(body?.fields) ? body.fields : [];
+        const enabledFields = fields.filter((f) => f?.enabled !== false && f?.key);
+
+        if (enabledFields.length === 0 || !requestMethodSupportsBody(method)) {
+            return { hasBody: false, data: undefined, preview: '', curlBody: '', curlFormFields: null, contentType: '' };
+        }
+
+        const formData = new FormData();
+        const previewLines = [];
+        const curlFormFields = [];
+
+        for (const field of enabledFields) {
+            const key = interpolateValue(String(field.key || ''), variables);
+            if (field.fieldType === 'file') {
+                const filePath = String(field.value || '').trim();
+                if (filePath && fsSync.existsSync(filePath)) {
+                    const buffer = fsSync.readFileSync(filePath);
+                    const blob = new Blob([buffer]);
+                    formData.append(key, blob, path.basename(filePath));
+                    previewLines.push(`${key}: [File: ${path.basename(filePath)}]`);
+                    curlFormFields.push(`${key}=@${filePath}`);
+                }
+            } else {
+                const value = interpolateValue(String(field.value || ''), variables);
+                formData.append(key, value);
+                previewLines.push(`${key}: ${value}`);
+                curlFormFields.push(`${key}=${value}`);
+            }
+        }
+
+        return {
+            hasBody: true,
+            data: formData,
+            preview: previewLines.join('\n'),
+            curlBody: '',
+            curlFormFields,
+            contentType: '',
+        };
+    }
+
     if (bodyType === 'json') {
         const trimmedContent = content.trim();
 
@@ -2113,6 +2162,7 @@ function resolveRequestBody(body, variables, method) {
             data: undefined,
             preview: '',
             curlBody: '',
+            curlFormFields: null,
             contentType: '',
         };
     }
@@ -2122,6 +2172,7 @@ function resolveRequestBody(body, variables, method) {
         data: content,
         preview: content,
         curlBody: content,
+        curlFormFields: null,
         contentType: '',
     };
 }
@@ -2197,7 +2248,11 @@ function buildCurlCommand(request, activeEnvironment, target = 'powershell') {
         commandParts.push(['--user', quoteShellArgument(basicCredentials, normalizedTarget)]);
     }
 
-    if (resolvedBody.hasBody) {
+    if (resolvedBody.curlFormFields?.length > 0) {
+        for (const field of resolvedBody.curlFormFields) {
+            commandParts.push(['--form', quoteShellArgument(field, normalizedTarget)]);
+        }
+    } else if (resolvedBody.hasBody) {
         commandParts.push(['--data-raw', quoteShellArgument(resolvedBody.curlBody, normalizedTarget)]);
     }
 
@@ -2841,4 +2896,16 @@ ipcMain.handle('import:payload', async (_, { workspacePath }) => {
     const payload = await readJson(source.filePaths[0]);
     await importPayloadIntoWorkspace(workspacePath, payload);
     return buildManagedWorkspaceSnapshot(workspacePath);
+});
+
+ipcMain.handle('file:pick', async () => {
+    const result = await dialog.showOpenDialog({
+        properties: ['openFile'],
+    });
+
+    if (result.canceled || !result.filePaths[0]) {
+        return null;
+    }
+
+    return result.filePaths[0];
 });

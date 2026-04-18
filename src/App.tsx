@@ -3297,6 +3297,26 @@ function KeyValueTable({ title, rows, onChange, variableNames, variableValues, e
 
 function BodyEditor({ request, onChange, onBeautify, variableNames, variableValues }) {
     const bodyModelPath = `inmemory://requests/${request.id}/body.${request.body.type === 'json' ? 'json' : 'txt'}`;
+    const multipartFields = request.body.fields || [];
+
+    function addMultipartField() {
+        onChange({ ...request.body, fields: [...multipartFields, { key: '', value: '', enabled: true, fieldType: 'text' }] });
+    }
+
+    function updateMultipartField(index, updates) {
+        onChange({ ...request.body, fields: multipartFields.map((f, i) => (i === index ? { ...f, ...updates } : f)) });
+    }
+
+    function removeMultipartField(index) {
+        onChange({ ...request.body, fields: multipartFields.filter((_, i) => i !== index) });
+    }
+
+    async function pickFileForField(index) {
+        const filePath = await requiiIpc.pickFile();
+        if (filePath) {
+            updateMultipartField(index, { value: filePath });
+        }
+    }
 
     return (
         <div className="flex min-h-[300px] flex-col gap-2.5">
@@ -3307,11 +3327,81 @@ function BodyEditor({ request, onChange, onBeautify, variableNames, variableValu
                         <option value="none">No Body</option>
                         <option value="json">JSON</option>
                         <option value="text">Text</option>
+                        <option value="multipart">Multipart Form</option>
                     </select>
+                    {request.body.type === 'multipart' ? (
+                        <button className="ghost-button px-2 py-1.5" onClick={addMultipartField} type="button">Add</button>
+                    ) : null}
                 </div>
             </div>
             {request.body.type === 'none' ? (
                 <div className="flex min-h-[280px] items-center justify-center rounded-xl border border-dashed border-black/10 bg-[#e7dac4]/72 text-sm text-ink/55">This request will be sent without a body.</div>
+            ) : request.body.type === 'multipart' ? (
+                <div className="flex min-h-[280px] flex-col gap-2">
+                    <div className="grid grid-cols-[72px_minmax(0,1fr)_110px_minmax(0,1fr)_72px] gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-ink/45">
+                        <span>On</span>
+                        <span>Key</span>
+                        <span>Type</span>
+                        <span>Value</span>
+                        <span></span>
+                    </div>
+                    <div className="min-h-0 flex-1 space-y-1.5 overflow-auto pr-1">
+                        {multipartFields.length === 0 ? (
+                            <div className="rounded-xl bg-[#e6d7c1]/78 px-3 py-4 text-sm text-ink/55">No fields yet. Click Add to get started.</div>
+                        ) : null}
+                        {multipartFields.map((field, index) => (
+                            <div key={index} className="grid grid-cols-[72px_minmax(0,1fr)_110px_minmax(0,1fr)_72px] gap-2">
+                                <label className="flex items-center justify-center rounded-xl border border-black/10 bg-[#eadcc5]/88">
+                                    <input type="checkbox" checked={field.enabled !== false} onChange={(event) => updateMultipartField(index, { enabled: event.target.checked })} />
+                                </label>
+                                <input
+                                    className="field"
+                                    value={field.key || ''}
+                                    onChange={(event) => updateMultipartField(index, { key: event.target.value })}
+                                    placeholder="name"
+                                    spellCheck={false}
+                                />
+                                <select
+                                    className="field px-2.5 py-1.5"
+                                    value={field.fieldType || 'text'}
+                                    onChange={(event) => updateMultipartField(index, { fieldType: event.target.value, value: '' })}
+                                >
+                                    <option value="text">Text</option>
+                                    <option value="file">File</option>
+                                </select>
+                                {field.fieldType === 'file' ? (
+                                    <div className="flex min-w-0 gap-1">
+                                        <input
+                                            className="field min-w-0 flex-1 cursor-default truncate"
+                                            value={field.value || ''}
+                                            readOnly
+                                            placeholder="No file selected"
+                                        />
+                                        <button
+                                            className="ghost-button shrink-0 px-2 py-1"
+                                            onClick={() => void pickFileForField(index)}
+                                            type="button"
+                                        >
+                                            Browse
+                                        </button>
+                                    </div>
+                                ) : (
+                                    <EnvironmentAutocompleteInput
+                                        className="field"
+                                        value={field.value || ''}
+                                        onChange={(value) => updateMultipartField(index, { value })}
+                                        variableNames={variableNames}
+                                        variableValues={variableValues}
+                                        suggestionsLabel="Environment Variables"
+                                    />
+                                )}
+                                <button className="ghost-button px-2 py-2" onClick={() => removeMultipartField(index)} type="button">
+                                    Remove
+                                </button>
+                            </div>
+                        ))}
+                    </div>
+                </div>
             ) : (
                 <CodeMiniEditor
                     modelPath={bodyModelPath}

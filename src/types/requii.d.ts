@@ -42,6 +42,7 @@ declare global {
         exportWorkspace: (workspacePath: string, selection?: any) => Promise<string | null>;
         exportRequest: (workspacePath: string, request: any) => Promise<string | null>;
         importPayload: (workspacePath: string) => Promise<any>;
+        pickFile: () => Promise<string | null>;
     }
 
     interface Window {

@@ -92,4 +92,7 @@ export const requiiIpc = {
     importPayload(workspacePath) {
         return window.requii.importPayload(workspacePath);
     },
+    pickFile() {
+        return window.requii.pickFile();
+    },
 };

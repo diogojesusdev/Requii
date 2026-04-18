@@ -51,6 +51,14 @@ function ensureBodyShape(body) {
         };
     }
 
+    if (normalizedType === 'multipart') {
+        return {
+            type: 'multipart',
+            content: '',
+            fields: Array.isArray(body?.fields) ? body.fields : [],
+        };
+    }
+
     if (!normalizedType || normalizedType === 'none') {
         return {
             type: content ? 'raw' : 'none',
