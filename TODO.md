@@ -1,0 +1,2 @@
+- when auth token is cleared, don't send it in requests
+- the curl generators are not generating valid commands
