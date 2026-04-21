@@ -2002,7 +2002,15 @@ function quotePowerShellArgument(value) {
 
 function quotePosixArgument(value) {
     const stringValue = String(value ?? '');
-    return `'${stringValue.replace(/'/g, `'"'"'`)}'`;
+    // Use $'...' ANSI-C quoting so that backslash escapes, newlines, tabs etc.
+    // are handled correctly by all POSIX shells.
+    const escaped = stringValue
+        .replace(/\\/g, '\\\\')
+        .replace(/'/g, "\\'")
+        .replace(/\n/g, '\\n')
+        .replace(/\r/g, '\\r')
+        .replace(/\t/g, '\\t');
+    return `$'${escaped}'`;
 }
 
 function quoteCmdArgument(value) {
@@ -2011,26 +2019,47 @@ function quoteCmdArgument(value) {
         return '""';
     }
 
+    // cmd.exe uses double-quote wrapping.  Inside the quotes:
+    //  - backslashes before a double-quote must be doubled
+    //  - double-quotes are escaped as \"
+    //  - % must be doubled (%%)
+    //  - ! must be escaped (^!) for delayed-expansion contexts
+    //  - newlines/carriage-returns are stripped (cmd cannot embed them)
     let result = '"';
     let backslashCount = 0;
 
     for (const character of stringValue) {
+        if (character === '\n' || character === '\r') {
+            // cmd.exe cannot embed newlines inside an argument; skip them
+            result += '\\'.repeat(backslashCount);
+            backslashCount = 0;
+            continue;
+        }
+
         if (character === '\\') {
             backslashCount += 1;
             continue;
         }
 
         if (character === '"') {
-            result += `${'\\'.repeat(backslashCount * 2 + 1)}\"`;
+            result += '\\'.repeat(backslashCount * 2 + 1) + '"';
             backslashCount = 0;
             continue;
         }
 
-        result += `${'\\'.repeat(backslashCount)}${character}`;
+        result += '\\'.repeat(backslashCount);
         backslashCount = 0;
+
+        if (character === '%') {
+            result += '%%';
+        } else if (character === '!') {
+            result += '^!';
+        } else {
+            result += character;
+        }
     }
 
-    result += `${'\\'.repeat(backslashCount * 2)}\"`;
+    result += '\\'.repeat(backslashCount * 2) + '"';
     return result;
 }
 

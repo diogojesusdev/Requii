@@ -1,1 +1,0 @@
-- the curl generators are not generating valid commands, ensure stuff is properly escaped to be valid on all possible terminal formats supported
