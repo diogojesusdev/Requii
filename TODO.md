@@ -1,2 +1,1 @@
-- when auth token is cleared, don't send it in requests
-- the curl generators are not generating valid commands
+- the curl generators are not generating valid commands, ensure stuff is properly escaped to be valid on all possible terminal formats supported
