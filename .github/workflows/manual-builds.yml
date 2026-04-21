@@ -79,11 +79,13 @@ jobs:
         id: metadata
         shell: bash
         run: |
-          VERSION=$(node -p "JSON.parse(require('fs').readFileSync('package.json', 'utf8')).version")
+          PKG_VERSION=$(node -p "JSON.parse(require('fs').readFileSync('package.json', 'utf8')).version")
           if [ -n "${{ inputs.release_tag }}" ]; then
             RELEASE_TAG="${{ inputs.release_tag }}"
+            VERSION="${RELEASE_TAG#v}"
           else
-            RELEASE_TAG="v${VERSION}"
+            RELEASE_TAG="v${PKG_VERSION}"
+            VERSION="${PKG_VERSION}"
           fi
 
           if [ -n "${{ inputs.release_name }}" ]; then
@@ -115,6 +117,9 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+
+      - name: Sync package.json version
+        run: npm version "${{ needs.prepare-release.outputs.version }}" --no-git-tag-version --allow-same-version
 
       - name: Build full Windows release artifacts
         if: ${{ inputs.artifact_set == 'full' }}
@@ -161,6 +166,9 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Sync package.json version
+        run: npm version "${{ needs.prepare-release.outputs.version }}" --no-git-tag-version --allow-same-version
+
       - name: Build full macOS release artifacts
         if: ${{ inputs.artifact_set == 'full' }}
         run: npm run dist:mac -- --publish never
@@ -203,6 +211,9 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+
+      - name: Sync package.json version
+        run: npm version "${{ needs.prepare-release.outputs.version }}" --no-git-tag-version --allow-same-version
 
       - name: Build full Linux release artifacts
         if: ${{ inputs.artifact_set == 'full' }}
