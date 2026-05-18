@@ -80,6 +80,9 @@ export const requiiIpc = {
     executeRequest(request, activeEnvironment) {
         return window.requii.executeRequest(request, activeEnvironment);
     },
+    cancelRequest() {
+        return window.requii.cancelRequest();
+    },
     copyRequestAsCurl(request, activeEnvironment, target: 'powershell' | 'cmd' | 'bash' = 'powershell') {
         return window.requii.copyRequestAsCurl(request, activeEnvironment, target);
     },
@@ -91,5 +94,8 @@ export const requiiIpc = {
     },
     importPayload(workspacePath) {
         return window.requii.importPayload(workspacePath);
+    },
+    pickFile() {
+        return window.requii.pickFile();
     },
 };

@@ -45,9 +45,11 @@ contextBridge.exposeInMainWorld('requii', {
         ipcRenderer.invoke('oauth2:fetch-token', { oauth2, activeEnvironment }),
     executeRequest: (request, activeEnvironment) =>
         ipcRenderer.invoke('request:execute', { request, activeEnvironment }),
+    cancelRequest: () => ipcRenderer.invoke('request:cancel'),
     copyRequestAsCurl: (request, activeEnvironment, target = 'powershell') =>
         ipcRenderer.invoke('request:copy-curl', { request, activeEnvironment, target }),
     exportWorkspace: (workspacePath, selection) => ipcRenderer.invoke('export:workspace', { workspacePath, selection }),
     exportRequest: (workspacePath, request) => ipcRenderer.invoke('export:request', { workspacePath, request }),
     importPayload: (workspacePath) => ipcRenderer.invoke('import:payload', { workspacePath }),
+    pickFile: () => ipcRenderer.invoke('file:pick'),
 });

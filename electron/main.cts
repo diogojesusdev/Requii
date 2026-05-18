@@ -1,5 +1,6 @@
 const { app, BrowserWindow, dialog, ipcMain, shell } = require('electron');
 const path = require('path');
+const fsSync = require('fs');
 const fs = require('fs/promises');
 const https = require('https');
 const axios = require('axios');
@@ -18,6 +19,12 @@ const INSOMNIA_RUNTIME_ENV_PREFIX = '__INSOMNIA_ENV__';
 const WINDOWS_APP_ID = 'com.requii.app';
 const MIN_ZOOM_LEVEL = -3;
 const MAX_ZOOM_LEVEL = 8;
+const INSECURE_HTTPS_AGENT = new https.Agent({ rejectUnauthorized: false });
+
+let activeRequestAbortController: AbortController | null = null;
+
+app.commandLine.appendSwitch('ignore-certificate-errors');
+process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
 
 function serializeWindowState(window) {
     return {
@@ -203,7 +210,15 @@ function normalizeBodyShape(body) {
         };
     }
 
-    if (normalizedType === 'raw' || normalizedType === 'text' || normalizedType === 'xml' || normalizedType === 'form' || normalizedType === 'formdata' || normalizedType === 'multipart') {
+    if (normalizedType === 'multipart') {
+        return {
+            type: 'multipart',
+            content: '',
+            fields: Array.isArray(body?.fields) ? body.fields : [],
+        };
+    }
+
+    if (normalizedType === 'raw' || normalizedType === 'text' || normalizedType === 'xml' || normalizedType === 'form' || normalizedType === 'formdata') {
         return {
             type: content ? 'raw' : 'none',
             content,
@@ -1719,7 +1734,7 @@ async function performOAuth2TokenRequest(requestConfig) {
         url: requestConfig.url,
         data: requestConfig.body.toString(),
         headers: requestConfig.headers,
-        httpsAgent: new https.Agent({ rejectUnauthorized: false }),
+        httpsAgent: INSECURE_HTTPS_AGENT,
         validateStatus: () => true,
     });
 }
@@ -1989,7 +2004,15 @@ function quotePowerShellArgument(value) {
 
 function quotePosixArgument(value) {
     const stringValue = String(value ?? '');
-    return `'${stringValue.replace(/'/g, `'"'"'`)}'`;
+    // Use $'...' ANSI-C quoting so that backslash escapes, newlines, tabs etc.
+    // are handled correctly by all POSIX shells.
+    const escaped = stringValue
+        .replace(/\\/g, '\\\\')
+        .replace(/'/g, "\\'")
+        .replace(/\n/g, '\\n')
+        .replace(/\r/g, '\\r')
+        .replace(/\t/g, '\\t');
+    return `$'${escaped}'`;
 }
 
 function quoteCmdArgument(value) {
@@ -1998,26 +2021,47 @@ function quoteCmdArgument(value) {
         return '""';
     }
 
+    // cmd.exe uses double-quote wrapping.  Inside the quotes:
+    //  - backslashes before a double-quote must be doubled
+    //  - double-quotes are escaped as \"
+    //  - % must be doubled (%%)
+    //  - ! must be escaped (^!) for delayed-expansion contexts
+    //  - newlines/carriage-returns are stripped (cmd cannot embed them)
     let result = '"';
     let backslashCount = 0;
 
     for (const character of stringValue) {
+        if (character === '\n' || character === '\r') {
+            // cmd.exe cannot embed newlines inside an argument; skip them
+            result += '\\'.repeat(backslashCount);
+            backslashCount = 0;
+            continue;
+        }
+
         if (character === '\\') {
             backslashCount += 1;
             continue;
         }
 
         if (character === '"') {
-            result += `${'\\'.repeat(backslashCount * 2 + 1)}\"`;
+            result += '\\'.repeat(backslashCount * 2 + 1) + '"';
             backslashCount = 0;
             continue;
         }
 
-        result += `${'\\'.repeat(backslashCount)}${character}`;
+        result += '\\'.repeat(backslashCount);
         backslashCount = 0;
+
+        if (character === '%') {
+            result += '%%';
+        } else if (character === '!') {
+            result += '^!';
+        } else {
+            result += character;
+        }
     }
 
-    result += `${'\\'.repeat(backslashCount * 2)}\"`;
+    result += '\\'.repeat(backslashCount * 2) + '"';
     return result;
 }
 
@@ -2058,6 +2102,47 @@ function hasHeader(headers, headerName) {
 function resolveRequestBody(body, variables, method) {
     const bodyType = String(body?.type || '').trim().toLowerCase();
     const content = typeof body?.content === 'string' ? interpolateValue(body.content, variables) : '';
+
+    if (bodyType === 'multipart') {
+        const fields = Array.isArray(body?.fields) ? body.fields : [];
+        const enabledFields = fields.filter((f) => f?.enabled !== false && f?.key);
+
+        if (enabledFields.length === 0 || !requestMethodSupportsBody(method)) {
+            return { hasBody: false, data: undefined, preview: '', curlBody: '', curlFormFields: null, contentType: '' };
+        }
+
+        const formData = new FormData();
+        const previewLines = [];
+        const curlFormFields = [];
+
+        for (const field of enabledFields) {
+            const key = interpolateValue(String(field.key || ''), variables);
+            if (field.fieldType === 'file') {
+                const filePath = String(field.value || '').trim();
+                if (filePath && fsSync.existsSync(filePath)) {
+                    const buffer = fsSync.readFileSync(filePath);
+                    const blob = new Blob([buffer]);
+                    formData.append(key, blob, path.basename(filePath));
+                    previewLines.push(`${key}: [File: ${path.basename(filePath)}]`);
+                    curlFormFields.push(`${key}=@${filePath}`);
+                }
+            } else {
+                const value = interpolateValue(String(field.value || ''), variables);
+                formData.append(key, value);
+                previewLines.push(`${key}: ${value}`);
+                curlFormFields.push(`${key}=${value}`);
+            }
+        }
+
+        return {
+            hasBody: true,
+            data: formData,
+            preview: previewLines.join('\n'),
+            curlBody: '',
+            curlFormFields,
+            contentType: '',
+        };
+    }
 
     if (bodyType === 'json') {
         const trimmedContent = content.trim();
@@ -2108,6 +2193,7 @@ function resolveRequestBody(body, variables, method) {
             data: undefined,
             preview: '',
             curlBody: '',
+            curlFormFields: null,
             contentType: '',
         };
     }
@@ -2117,6 +2203,7 @@ function resolveRequestBody(body, variables, method) {
         data: content,
         preview: content,
         curlBody: content,
+        curlFormFields: null,
         contentType: '',
     };
 }
@@ -2192,7 +2279,11 @@ function buildCurlCommand(request, activeEnvironment, target = 'powershell') {
         commandParts.push(['--user', quoteShellArgument(basicCredentials, normalizedTarget)]);
     }
 
-    if (resolvedBody.hasBody) {
+    if (resolvedBody.curlFormFields?.length > 0) {
+        for (const field of resolvedBody.curlFormFields) {
+            commandParts.push(['--form', quoteShellArgument(field, normalizedTarget)]);
+        }
+    } else if (resolvedBody.hasBody) {
         commandParts.push(['--data-raw', quoteShellArgument(resolvedBody.curlBody, normalizedTarget)]);
     }
 
@@ -2241,6 +2332,21 @@ function installZoomShortcuts(mainWindow) {
 }
 
 async function createWindow() {
+    const packagedResourcesPath = path.join(path.dirname(process.execPath), 'resources');
+    const iconPath = process.platform === 'linux'
+        ? (app.isPackaged
+            ? path.join(packagedResourcesPath, 'icon.png')
+            : path.join(__dirname, '../../build/icon.png'))
+        : process.platform === 'win32'
+            ? (app.isPackaged
+                ? path.join(packagedResourcesPath, 'icon.ico')
+                : path.join(__dirname, '../../build/icon.ico'))
+            : null;
+
+    if (iconPath && !fsSync.existsSync(iconPath)) {
+        console.warn(`[icons] Window icon file not found: ${iconPath}`);
+    }
+
     const mainWindow = new BrowserWindow({
         width: 1560,
         height: 980,
@@ -2250,6 +2356,7 @@ async function createWindow() {
         frame: false,
         autoHideMenuBar: true,
         show: false,
+        icon: iconPath && fsSync.existsSync(iconPath) ? iconPath : undefined,
         webPreferences: {
             preload: path.join(__dirname, 'preload.cjs'),
             contextIsolation: true,
@@ -2693,6 +2800,9 @@ ipcMain.handle('request:execute', async (_, { request, activeEnvironment }) => {
     let finalUrl = '';
     let data;
 
+    const abortController = new AbortController();
+    activeRequestAbortController = abortController;
+
     try {
         finalUrl = interpolateValue(request.url, variables).trim();
         if (!finalUrl) {
@@ -2743,7 +2853,9 @@ ipcMain.handle('request:execute', async (_, { request, activeEnvironment }) => {
             url: finalUrl,
             headers,
             data,
+            httpsAgent: INSECURE_HTTPS_AGENT,
             validateStatus: () => true,
+            signal: abortController.signal,
         });
 
         return {
@@ -2762,8 +2874,34 @@ ipcMain.handle('request:execute', async (_, { request, activeEnvironment }) => {
             error: null,
         };
     } catch (error) {
+        if (error?.name === 'CanceledError' || error?.code === 'ERR_CANCELED' || abortController.signal.aborted) {
+            return {
+                ok: false,
+                hasResponse: false,
+                status: 'CANCELLED',
+                statusText: 'Request cancelled',
+                headers: {},
+                data: null,
+                durationMs: Date.now() - startedAt,
+                requestPreview: { url: finalUrl, headers, body: data },
+                error: { stage: 'cancelled', title: 'Request cancelled by user', detail: '' },
+            };
+        }
         return buildRequestFailureResponse(error, { startedAt, finalUrl, headers, data });
+    } finally {
+        if (activeRequestAbortController === abortController) {
+            activeRequestAbortController = null;
+        }
     }
+});
+
+ipcMain.handle('request:cancel', async () => {
+    if (activeRequestAbortController) {
+        activeRequestAbortController.abort();
+        activeRequestAbortController = null;
+        return true;
+    }
+    return false;
 });
 
 ipcMain.handle('request:copy-curl', async (_, { request, activeEnvironment, target }) => {
@@ -2819,4 +2957,16 @@ ipcMain.handle('import:payload', async (_, { workspacePath }) => {
     const payload = await readJson(source.filePaths[0]);
     await importPayloadIntoWorkspace(workspacePath, payload);
     return buildManagedWorkspaceSnapshot(workspacePath);
+});
+
+ipcMain.handle('file:pick', async () => {
+    const result = await dialog.showOpenDialog({
+        properties: ['openFile'],
+    });
+
+    if (result.canceled || !result.filePaths[0]) {
+        return null;
+    }
+
+    return result.filePaths[0];
 });

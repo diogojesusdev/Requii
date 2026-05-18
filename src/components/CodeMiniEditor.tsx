@@ -66,6 +66,13 @@ export function CodeMiniEditor({ value, onChange, modelPath, language = 'plainte
     const variableValuesRef = useRef(variableValues);
     const isApplyingExternalValueRef = useRef(false);
 
+    // Keep callback/data refs up to date synchronously during render so that
+    // Monaco event handlers (e.g. onDidChangeModelContent) never invoke a stale
+    // callback between the render commit and the first useEffect flush.
+    onChangeRef.current = onChange;
+    variableNamesRef.current = variableNames;
+    variableValuesRef.current = variableValues;
+
     useEffect(
         () => () => {
             if (editorRef.current) {
@@ -78,18 +85,6 @@ export function CodeMiniEditor({ value, onChange, modelPath, language = 'plainte
         [],
     );
 
-    useEffect(() => {
-        onChangeRef.current = onChange;
-    }, [onChange]);
-
-    useEffect(() => {
-        variableNamesRef.current = variableNames;
-    }, [variableNames]);
-
-    useEffect(() => {
-        variableValuesRef.current = variableValues;
-    }, [variableValues]);
-
     const options = useMemo(
         () => ({
             automaticLayout: true,
@@ -99,7 +94,9 @@ export function CodeMiniEditor({ value, onChange, modelPath, language = 'plainte
             lineNumbers: 'on' as const,
             lineNumbersMinChars: 3,
             glyphMargin: false,
-            folding: false,
+            folding: true,
+            showFoldingControls: 'always' as const,
+            foldingHighlight: true,
             fontSize: 12,
             fontFamily: 'Consolas, "Cascadia Code", monospace',
             fontLigatures: true,

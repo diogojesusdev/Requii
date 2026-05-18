@@ -5,7 +5,7 @@ import { EditorTabBar } from './components/EditorTabBar';
 import { RequestTabs } from './components/RequestTabs';
 import { ResponseBodyDialog, ResponseTabs } from './components/ResponseTabs';
 import { TreeSection } from './components/RequestTree';
-import { BeautifyIcon, ChevronDownIcon, CloseIcon, DragHandleIcon, ExpandIcon, ExportIcon, FolderIcon, ImportIcon, InvalidStatusIcon, MaximizeIcon, MinimizeIcon, NewFolderIcon, NewRequestIcon, NewWorkspaceIcon, OpenFolderIcon, PencilIcon, RequestIcon, RestoreIcon, SearchIcon, TerminalIcon, TrashIcon, ValidStatusIcon } from './components/icons';
+import { BeautifyIcon, ChevronDownIcon, CloseIcon, DragHandleIcon, ExpandIcon, ExportIcon, FolderIcon, ImportIcon, InvalidStatusIcon, LinkIcon, MaximizeIcon, MinimizeIcon, NewFolderIcon, NewRequestIcon, NewWorkspaceIcon, OpenFolderIcon, PencilIcon, RequestIcon, RestoreIcon, SearchIcon, StopIcon, TerminalIcon, TrashIcon, ValidStatusIcon } from './components/icons';
 import {
     COMMON_HEADER_KEY_SUGGESTIONS,
     COMMON_HEADER_VALUE_SUGGESTIONS,
@@ -163,8 +163,10 @@ function App() {
     const [responseTabById, setResponseTabById] = useState({});
     const [expandedFolderPaths, setExpandedFolderPaths] = useState([]);
     const [treeFilter, setTreeFilter] = useState('');
+    const [urlFilter, setUrlFilter] = useState('');
     const [status, setStatus] = useState('Preparing workspace...');
     const [isBusy, setIsBusy] = useState(false);
+    const [isRequestInFlight, setIsRequestInFlight] = useState(false);
     const [isWorkspaceReady, setIsWorkspaceReady] = useState(false);
     const [composer, setComposer] = useState(emptyComposer());
     const [responseViewer, setResponseViewer] = useState(null);
@@ -209,7 +211,7 @@ function App() {
         [activeEnvironment, activeEnvironmentVariables, baseEnvironment?.id, normalizedEnvironments.active_environment_id],
     );
     const tree = useMemo(() => buildTree(folders, requests), [folders, requests]);
-    const filteredTree = useMemo(() => filterTree(tree, treeFilter), [tree, treeFilter]);
+    const filteredTree = useMemo(() => filterTree(tree, treeFilter, urlFilter), [tree, treeFilter, urlFilter]);
     const expandedFolderPathSet = useMemo(() => new Set(expandedFolderPaths), [expandedFolderPaths]);
 
     function getTabSequence(currentTabs = tabs, currentActiveRequestId = activeRequestId) {
@@ -466,6 +468,7 @@ function App() {
                     response_tab_by_id: responseTabById,
                     expanded_folder_paths: expandedFolderPaths,
                     tree_filter: treeFilter,
+                    url_filter: urlFilter,
                 })
                 .catch(() => {
                     // Ignore persistence failures and keep the current session usable.
@@ -473,7 +476,7 @@ function App() {
         }, 150);
 
         return () => window.clearTimeout(timer);
-    }, [workspaceId, isWorkspaceReady, tabs, activeRequestId, requestEditorTabById, responseTabById, expandedFolderPaths, treeFilter]);
+    }, [workspaceId, isWorkspaceReady, tabs, activeRequestId, requestEditorTabById, responseTabById, expandedFolderPaths, treeFilter, urlFilter]);
 
     useEffect(() => {
         const target = pendingTreeRevealRef.current;
@@ -503,7 +506,8 @@ function App() {
 
     useEffect(() => {
         const normalizedFilter = treeFilter.trim();
-        if (!normalizedFilter) {
+        const normalizedUrlFilter = urlFilter.trim();
+        if (!normalizedFilter && !normalizedUrlFilter) {
             return;
         }
 
@@ -516,7 +520,7 @@ function App() {
             const nextPaths = [...new Set([...previous, ...visibleFolderPaths])];
             return nextPaths.length === previous.length ? previous : nextPaths;
         });
-    }, [filteredTree, treeFilter]);
+    }, [filteredTree, treeFilter, urlFilter]);
 
     useEffect(() => {
         try {
@@ -714,6 +718,7 @@ function App() {
         setExpandedFolderPaths(nextExpandedFolderPaths);
         setResponses((previous) => Object.fromEntries(Object.entries(previous).filter(([requestId]) => nextRequestIds.has(requestId))));
         setTreeFilter(typeof nextUiState.tree_filter === 'string' ? nextUiState.tree_filter : '');
+        setUrlFilter(typeof nextUiState.url_filter === 'string' ? nextUiState.url_filter : '');
     }
 
     function toggleFolderExpansion(folderPath, nextExpanded) {
@@ -1298,13 +1303,16 @@ function App() {
         const requestId = activeRequest.id;
         const requestName = activeRequest.name;
         setIsBusy(true);
+        setIsRequestInFlight(true);
         setStatus(`Executing ${requestName}...`);
         try {
             const response = await requiiIpc.executeRequest(activeRequest, requestExecutionEnvironment);
             setResponses((previous) => ({ ...previous, [requestId]: response }));
             setResponseTabById((previous) => ({ ...previous, [requestId]: 'body' }));
             scrollSectionIntoView(responseSectionRef.current);
-            if (response.hasResponse) {
+            if (response.error?.stage === 'cancelled') {
+                setStatus('Request cancelled.');
+            } else if (response.hasResponse) {
                 setStatus(`Received ${response.status} ${response.statusText} in ${response.durationMs} ms.`);
             } else {
                 setStatus(response.error?.title || `Failed to execute ${requestName}.`);
@@ -1336,7 +1344,12 @@ function App() {
             setStatus(error.message || `Failed to execute ${requestName}.`);
         } finally {
             setIsBusy(false);
+            setIsRequestInFlight(false);
         }
+    }
+
+    async function cancelRequest() {
+        await requiiIpc.cancelRequest();
     }
 
     async function importPayload() {
@@ -1878,7 +1891,9 @@ function App() {
         <div className="flex h-screen flex-col overflow-hidden bg-[#a9997f] text-ink">
             <header className="app-drag-region flex h-11 items-center justify-between border-b border-black/10 bg-[#8f7b60] px-3 text-ink">
                 <div className="min-w-0">
-                    <p className="truncate text-sm font-bold tracking-[0.08em]">Requii</p>
+                    <div className="flex items-center gap-1.5">
+                        <p className="truncate text-sm font-bold tracking-[0.08em]">Requii</p>
+                    </div>
                     <p className="truncate text-[11px] text-ink/60">Workspace: {workspaceName || 'Workspace'}</p>
                 </div>
                 <div className="app-no-drag flex items-center gap-1.5">
@@ -1987,6 +2002,17 @@ function App() {
 
                     <div className="relative z-10 border-b border-black/8 px-4 py-3">
                         <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.18em] text-ink/45">Filter</label>
+                        <div className="relative z-10 mb-2">
+                            <span className="pointer-events-none absolute left-3 top-1/2 z-10 -translate-y-1/2 text-ink/35">
+                                <LinkIcon />
+                            </span>
+                            <input className="field pl-9 pr-10" value={urlFilter} onChange={(event) => setUrlFilter(event.target.value)} placeholder="Filter by URL" spellCheck={false} />
+                            {urlFilter ? (
+                                <button className="icon-action-button absolute right-1.5 top-1/2 z-10 h-7 w-7 -translate-y-1/2 border-transparent bg-transparent text-ink/55 hover:bg-black/[0.05]" onClick={() => setUrlFilter('')} title="Clear URL filter" type="button">
+                                    <CloseIcon />
+                                </button>
+                            ) : null}
+                        </div>
                         <div className="relative z-10">
                             <span className="pointer-events-none absolute left-3 top-1/2 z-10 -translate-y-1/2 text-ink/35">
                                 <SearchIcon />
@@ -2021,7 +2047,7 @@ function App() {
                                 <p className="mt-1">Create one or import an existing workspace.</p>
                             </div>
                         ) : (
-                            <TreeSection node={filteredTree || { folders: [], requests: [] }} activeRequestId={activeRequestId} onOpenRequest={openRequest} onRenameRequest={renameRequestFromTree} onDeleteRequest={deleteRequest} onDuplicateRequest={duplicateRequest} onCreateFolder={(path) => openComposer('folder', path)} onCreateRequest={(path) => openComposer('request', path)} onDeleteFolder={deleteFolder} onRenameFolder={renameFolder} draggedRequestId={draggedRequestId} requestDropTarget={requestDropTarget} onRequestDragStart={startRequestDrag} onRequestDragEnd={clearRequestDrag} onRequestDragOverFolder={handleRequestDragOverFolder} onRequestDragOverRequest={handleRequestDragOverRequest} onRequestDragOverGap={handleRequestDragOverGap} onRequestDropOnFolder={handleRequestDropOnFolder} onRequestDropOnRequest={handleRequestDropOnRequest} onRequestDropOnGap={handleRequestDropOnGap} draggedFolderPath={draggedFolderPath} folderDropTarget={folderDropTarget} onFolderDragStart={startFolderDrag} onFolderDragEnd={clearFolderDrag} expandedFolderPathSet={expandedFolderPathSet} onToggleFolder={toggleFolderExpansion} emptyMessage={treeFilter ? 'No folders or requests match this filter.' : 'This folder is empty.'} />
+                            <TreeSection node={filteredTree || { folders: [], requests: [] }} activeRequestId={activeRequestId} onOpenRequest={openRequest} onRenameRequest={renameRequestFromTree} onDeleteRequest={deleteRequest} onDuplicateRequest={duplicateRequest} onCreateFolder={(path) => openComposer('folder', path)} onCreateRequest={(path) => openComposer('request', path)} onDeleteFolder={deleteFolder} onRenameFolder={renameFolder} draggedRequestId={draggedRequestId} requestDropTarget={requestDropTarget} onRequestDragStart={startRequestDrag} onRequestDragEnd={clearRequestDrag} onRequestDragOverFolder={handleRequestDragOverFolder} onRequestDragOverRequest={handleRequestDragOverRequest} onRequestDragOverGap={handleRequestDragOverGap} onRequestDropOnFolder={handleRequestDropOnFolder} onRequestDropOnRequest={handleRequestDropOnRequest} onRequestDropOnGap={handleRequestDropOnGap} draggedFolderPath={draggedFolderPath} folderDropTarget={folderDropTarget} onFolderDragStart={startFolderDrag} onFolderDragEnd={clearFolderDrag} expandedFolderPathSet={expandedFolderPathSet} onToggleFolder={toggleFolderExpansion} emptyMessage={(treeFilter || urlFilter) ? 'No folders or requests match this filter.' : 'This folder is empty.'} />
                         )}
                     </div>
 
@@ -2052,9 +2078,15 @@ function App() {
                                             ))}
                                         </select>
                                         <EnvironmentAutocompleteInput className="field h-[42px] px-2.5 py-1.5" value={activeRequest.url} onChange={(value) => updateRequest(activeRequest.id, (current) => ({ ...current, url: value }))} onSubmit={runRequest} placeholder="{{base_url}}/api/v1/resource" variableNames={activeEnvironmentVariableNames} variableValues={activeEnvironmentVariables} />
-                                        <button className="primary-button h-[42px] px-3 py-1.5" onClick={runRequest} disabled={isBusy}>
-                                            Send
-                                        </button>
+                                        {isRequestInFlight ? (
+                                            <button className="rounded-xl bg-[#8b2020] px-4 py-2 text-sm font-semibold text-paper transition hover:bg-[#6f1919] h-[42px]" onClick={cancelRequest} type="button" title="Cancel request">
+                                                <StopIcon />
+                                            </button>
+                                        ) : (
+                                            <button className="primary-button h-[42px] px-3 py-1.5" onClick={runRequest} disabled={isBusy}>
+                                                Send
+                                            </button>
+                                        )}
                                         <button className="icon-action-button h-[42px] w-[42px]" onClick={exportActiveRequest} title="Export request" aria-label="Export request" disabled={!activeRequest || isBusy} type="button">
                                             <ExportIcon />
                                         </button>
@@ -2733,7 +2765,7 @@ function EnvironmentAutocompleteField({ as = 'input', variableNames = [], variab
     const hasStaticSuggestions = firstEnvironmentSuggestionIndex > 0;
     const isOpen = isFocused && !suppressAutoOpen && suggestions.length > 0 && Boolean(context) && (manualOpen || context.query.length >= ENV_AUTOCOMPLETE_MIN_LENGTH);
     const canShowHoverPreview = interpolationMatches.length > 0;
-    const shouldRenderStyledOverlay = interpolationMatches.length > 0;
+    const shouldRenderStyledOverlay = interpolationMatches.length > 0 && !isFocused;
     const inputClassName = shouldRenderStyledOverlay ? `${className} env-field env-field__input` : `${className} env-field`;
     useEffect(() => {
         if (highlightedIndex >= visibleSuggestions.length) {
@@ -3280,6 +3312,26 @@ function KeyValueTable({ title, rows, onChange, variableNames, variableValues, e
 
 function BodyEditor({ request, onChange, onBeautify, variableNames, variableValues }) {
     const bodyModelPath = `inmemory://requests/${request.id}/body.${request.body.type === 'json' ? 'json' : 'txt'}`;
+    const multipartFields = request.body.fields || [];
+
+    function addMultipartField() {
+        onChange({ ...request.body, fields: [...multipartFields, { key: '', value: '', enabled: true, fieldType: 'text' }] });
+    }
+
+    function updateMultipartField(index, updates) {
+        onChange({ ...request.body, fields: multipartFields.map((f, i) => (i === index ? { ...f, ...updates } : f)) });
+    }
+
+    function removeMultipartField(index) {
+        onChange({ ...request.body, fields: multipartFields.filter((_, i) => i !== index) });
+    }
+
+    async function pickFileForField(index) {
+        const filePath = await requiiIpc.pickFile();
+        if (filePath) {
+            updateMultipartField(index, { value: filePath });
+        }
+    }
 
     return (
         <div className="flex min-h-[300px] flex-col gap-2.5">
@@ -3290,11 +3342,81 @@ function BodyEditor({ request, onChange, onBeautify, variableNames, variableValu
                         <option value="none">No Body</option>
                         <option value="json">JSON</option>
                         <option value="text">Text</option>
+                        <option value="multipart">Multipart Form</option>
                     </select>
+                    {request.body.type === 'multipart' ? (
+                        <button className="ghost-button px-2 py-1.5" onClick={addMultipartField} type="button">Add</button>
+                    ) : null}
                 </div>
             </div>
             {request.body.type === 'none' ? (
                 <div className="flex min-h-[280px] items-center justify-center rounded-xl border border-dashed border-black/10 bg-[#e7dac4]/72 text-sm text-ink/55">This request will be sent without a body.</div>
+            ) : request.body.type === 'multipart' ? (
+                <div className="flex min-h-[280px] flex-col gap-2">
+                    <div className="grid grid-cols-[72px_minmax(0,1fr)_110px_minmax(0,1fr)_72px] gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-ink/45">
+                        <span>On</span>
+                        <span>Key</span>
+                        <span>Type</span>
+                        <span>Value</span>
+                        <span></span>
+                    </div>
+                    <div className="min-h-0 flex-1 space-y-1.5 overflow-auto pr-1">
+                        {multipartFields.length === 0 ? (
+                            <div className="rounded-xl bg-[#e6d7c1]/78 px-3 py-4 text-sm text-ink/55">No fields yet. Click Add to get started.</div>
+                        ) : null}
+                        {multipartFields.map((field, index) => (
+                            <div key={index} className="grid grid-cols-[72px_minmax(0,1fr)_110px_minmax(0,1fr)_72px] gap-2">
+                                <label className="flex items-center justify-center rounded-xl border border-black/10 bg-[#eadcc5]/88">
+                                    <input type="checkbox" checked={field.enabled !== false} onChange={(event) => updateMultipartField(index, { enabled: event.target.checked })} />
+                                </label>
+                                <input
+                                    className="field"
+                                    value={field.key || ''}
+                                    onChange={(event) => updateMultipartField(index, { key: event.target.value })}
+                                    placeholder="name"
+                                    spellCheck={false}
+                                />
+                                <select
+                                    className="field px-2.5 py-1.5"
+                                    value={field.fieldType || 'text'}
+                                    onChange={(event) => updateMultipartField(index, { fieldType: event.target.value, value: '' })}
+                                >
+                                    <option value="text">Text</option>
+                                    <option value="file">File</option>
+                                </select>
+                                {field.fieldType === 'file' ? (
+                                    <div className="flex min-w-0 gap-1">
+                                        <input
+                                            className="field min-w-0 flex-1 cursor-default truncate"
+                                            value={field.value || ''}
+                                            readOnly
+                                            placeholder="No file selected"
+                                        />
+                                        <button
+                                            className="ghost-button shrink-0 px-2 py-1"
+                                            onClick={() => void pickFileForField(index)}
+                                            type="button"
+                                        >
+                                            Browse
+                                        </button>
+                                    </div>
+                                ) : (
+                                    <EnvironmentAutocompleteInput
+                                        className="field"
+                                        value={field.value || ''}
+                                        onChange={(value) => updateMultipartField(index, { value })}
+                                        variableNames={variableNames}
+                                        variableValues={variableValues}
+                                        suggestionsLabel="Environment Variables"
+                                    />
+                                )}
+                                <button className="ghost-button px-2 py-2" onClick={() => removeMultipartField(index)} type="button">
+                                    Remove
+                                </button>
+                            </div>
+                        ))}
+                    </div>
+                </div>
             ) : (
                 <CodeMiniEditor
                     modelPath={bodyModelPath}

@@ -1,8 +1,9 @@
 {
     "name": "requii",
-    "private": true,
-    "version": "0.1.0",
+    "version": "0.1.1",
+    "license": "MIT",
     "type": "module",
+    "author": "Diogo Jesus",
     "description": "Local-first API client built with Electron, React, Tailwind, Axios, and the host file system.",
     "main": "dist-electron/electron/main.cjs",
     "scripts": {
@@ -12,10 +13,12 @@
         "build:electron": "tsc -p tsconfig.electron.json",
         "build": "npm run build:electron && npm run typecheck:app && vite build",
         "start": "npm run build:electron && electron .",
-        "dist:win": "npm run build && electron-builder --win nsis",
-        "dist:portable": "npm run build && electron-builder --win portable",
-        "dist:mac": "npm run build && electron-builder --mac dmg zip",
-        "dist:linux": "npm run build && electron-builder --linux AppImage tar.gz"
+        "dist:win": "npm run build && powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/build-windows.ps1 installer",
+        "dist:win:installer": "npm run build && powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/build-windows.ps1 installer",
+        "dist:mac": "npm run build && electron-builder --mac dmg pkg",
+        "dist:mac:installer": "npm run build && electron-builder --mac dmg pkg",
+        "dist:linux": "npm run build && electron-builder --linux deb rpm",
+        "dist:linux:installer": "npm run build && electron-builder --linux deb rpm"
     },
     "build": {
         "appId": "com.requii.app",
@@ -27,12 +30,24 @@
         "directories": {
             "output": "release"
         },
+        "afterPack": "./scripts/electron-builder-after-pack.cjs",
         "files": [
             "dist/**/*",
             "dist-electron/**/*",
             "package.json"
         ],
+        "extraResources": [
+            {
+                "from": "build/icon.ico",
+                "to": "icon.ico"
+            },
+            {
+                "from": "build/icon.png",
+                "to": "icon.png"
+            }
+        ],
         "win": {
+            "icon": "build/icon.ico",
             "signAndEditExecutable": false,
             "target": [
                 {
@@ -40,11 +55,17 @@
                     "arch": [
                         "x64"
                     ]
+                },
+                {
+                    "target": "msi",
+                    "arch": [
+                        "x64"
+                    ]
                 }
-            ],
-            "artifactName": "${productName}-${version}-windows-${arch}.${ext}"
+            ]
         },
         "mac": {
+            "icon": "build/icon-macos.png",
             "category": "public.app-category.developer-tools",
             "target": [
                 {
@@ -55,7 +76,7 @@
                     ]
                 },
                 {
-                    "target": "zip",
+                    "target": "pkg",
                     "arch": [
                         "x64",
                         "arm64"
@@ -65,16 +86,18 @@
             "artifactName": "${productName}-${version}-mac-${arch}.${ext}"
         },
         "linux": {
+            "maintainer": "Diogo Jesus",
+            "icon": "build/icon.png",
             "category": "Development",
             "target": [
                 {
-                    "target": "AppImage",
+                    "target": "deb",
                     "arch": [
                         "x64"
                     ]
                 },
                 {
-                    "target": "tar.gz",
+                    "target": "rpm",
                     "arch": [
                         "x64"
                     ]
@@ -83,13 +106,23 @@
             "artifactName": "${productName}-${version}-linux-${arch}.${ext}"
         },
         "nsis": {
+            "artifactName": "${productName}-${version}-windows-${arch}-installer.${ext}",
             "oneClick": false,
             "allowToChangeInstallationDirectory": true,
             "perMachine": false,
             "createDesktopShortcut": true,
             "createStartMenuShortcut": true,
             "runAfterFinish": true,
-            "shortcutName": "Requii"
+            "shortcutName": "Requii",
+            "installerIcon": "build/icon.ico",
+            "uninstallerIcon": "build/icon.ico",
+            "installerHeaderIcon": "build/icon.ico"
+        },
+        "msi": {
+            "artifactName": "${productName}-${version}-windows-${arch}-installer.${ext}"
+        },
+        "pkg": {
+            "installLocation": "/Applications"
         }
     },
     "dependencies": {
@@ -107,6 +140,7 @@
         "cross-env": "^7.0.3",
         "electron": "^35.0.1",
         "electron-builder": "^25.1.8",
+        "rcedit": "^5.0.2",
         "monaco-editor": "^0.55.1",
         "postcss": "^8.5.3",
         "react": "^19.1.0",

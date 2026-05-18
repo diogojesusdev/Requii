@@ -1,0 +1,778 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Requii — Free, Local-First API Client for Windows, macOS & Linux</title>
+    <meta name="description" content="Requii is a free, open-source desktop API client that stores everything as files on disk. No accounts, no cloud, no telemetry. Git-friendly workspaces, OAuth2, nested environments, and AI-agent compatible.">
+    <meta name="keywords" content="API client, REST client, HTTP client, desktop app, open source, free, local-first, file-based, OAuth2, environment variables, Postman alternative, Insomnia alternative, Windows, macOS, Linux">
+    <meta name="author" content="Diogo Jesus">
+    <link rel="canonical" href="https://diogojesusdev.github.io/Requii/">
+
+    <!-- Open Graph / Social -->
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://diogojesusdev.github.io/Requii/">
+    <meta property="og:title" content="Requii — Free, Local-First API Client">
+    <meta property="og:description" content="A free, open-source desktop API client that stores everything as files. No accounts, no cloud, no telemetry. Git-friendly, AI-agent compatible.">
+    <meta property="og:image" content="https://raw.githubusercontent.com/diogojesusdev/Requii/main/requii_new_logo.png">
+
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Requii — Free, Local-First API Client">
+    <meta name="twitter:description" content="A free, open-source desktop API client that stores everything as files. No accounts, no cloud, no telemetry.">
+    <meta name="twitter:image" content="https://raw.githubusercontent.com/diogojesusdev/Requii/main/requii_new_logo.png">
+
+    <link rel="icon" type="image/png" href="https://raw.githubusercontent.com/diogojesusdev/Requii/main/requii_new_logo.png">
+
+    <!-- Structured Data -->
+    <script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@type": "SoftwareApplication",
+        "name": "Requii",
+        "description": "A free, open-source desktop API client that stores everything as files on disk. No accounts, no cloud, no telemetry.",
+        "url": "https://diogojesusdev.github.io/Requii/",
+        "applicationCategory": "DeveloperApplication",
+        "operatingSystem": "Windows, macOS, Linux",
+        "offers": {
+            "@type": "Offer",
+            "price": "0",
+            "priceCurrency": "USD"
+        },
+        "license": "https://opensource.org/licenses/MIT",
+        "downloadUrl": "https://github.com/diogojesusdev/Requii/releases/latest",
+        "softwareVersion": "0.1.1"
+    }
+    </script>
+    <style>
+        :root {
+            --paper: #f5efe5;
+            --paper-mid: #d7c29f;
+            --paper-strong: #9f8866;
+            --ink: #18211b;
+            --ink-soft: rgba(24, 33, 27, 0.72);
+            --ember: #c45a2d;
+            --ember-hover: #a94d26;
+            --sea: #1a7f8e;
+            --moss: #3a6b35;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: Aptos, "Segoe UI Variable", "Trebuchet MS", -apple-system, sans-serif;
+            background: linear-gradient(180deg, #c4ab88 0%, #a79579 40%, #8a7560 100%);
+            color: var(--ink);
+            line-height: 1.6;
+            min-height: 100vh;
+        }
+
+        /* Layout */
+        .wrapper {
+            max-width: 960px;
+            margin: 0 auto;
+            padding: 0 24px;
+        }
+
+        /* Hero */
+        .hero {
+            text-align: center;
+            padding: 48px 0 24px;
+        }
+
+        .hero-logo {
+            width: 88px;
+            height: 88px;
+            border-radius: 18px;
+            box-shadow: 0 8px 32px rgba(24, 33, 27, 0.18);
+            margin-bottom: 16px;
+        }
+
+        .hero h1 {
+            font-size: 3rem;
+            font-weight: 700;
+            letter-spacing: -0.03em;
+            color: var(--ink);
+            margin-bottom: 10px;
+        }
+
+        .hero-tagline {
+            font-size: 1.2rem;
+            color: var(--ink-soft);
+            max-width: 500px;
+            margin: 0 auto 24px;
+            line-height: 1.5;
+        }
+
+        /* Download */
+        .download-area {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 40px;
+        }
+
+        .btn-download {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            padding: 14px 36px;
+            background: var(--ink);
+            color: var(--paper);
+            border: none;
+            border-radius: 14px;
+            font-size: 1.05rem;
+            font-weight: 600;
+            text-decoration: none;
+            cursor: pointer;
+            transition: background 0.2s, transform 0.1s;
+            box-shadow: 0 4px 20px rgba(24, 33, 27, 0.2);
+        }
+
+        .btn-download:hover {
+            background: #0f1712;
+            transform: translateY(-1px);
+        }
+
+        .btn-download svg {
+            width: 18px;
+            height: 18px;
+        }
+
+        .download-meta {
+            font-size: 0.82rem;
+            color: var(--ink-soft);
+        }
+
+        .download-meta a {
+            color: var(--sea);
+            text-decoration: none;
+            font-weight: 500;
+        }
+
+        .download-meta a:hover {
+            text-decoration: underline;
+        }
+
+        /* Pillars — top-level value props */
+        .pillars {
+            display: flex;
+            justify-content: center;
+            gap: 48px;
+            margin-bottom: 36px;
+            flex-wrap: wrap;
+        }
+
+        .pillar {
+            text-align: center;
+            max-width: 200px;
+        }
+
+        .pillar-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: 12px;
+            background: var(--paper);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 12px;
+            font-size: 1.3rem;
+            box-shadow: 0 2px 8px rgba(24, 33, 27, 0.08);
+        }
+
+        .pillar h3 {
+            font-size: 0.9rem;
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+
+        .pillar p {
+            font-size: 0.8rem;
+            color: var(--ink-soft);
+            line-height: 1.4;
+        }
+
+        /* Screenshot gallery — hero image */
+        .hero-screenshot-wrap {
+            position: relative;
+            display: block;
+            margin: 0 auto 40px;
+            max-width: 1040px;
+            cursor: pointer;
+        }
+
+        .hero-screenshot-wrap:hover .screenshot-expand-btn {
+            opacity: 1;
+        }
+
+        .hero-screenshot {
+            width: 100%;
+            border-radius: 16px;
+            box-shadow: 0 12px 48px rgba(24, 33, 27, 0.25);
+            border: 1px solid rgba(24, 33, 27, 0.12);
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .hero-screenshot:hover {
+            transform: scale(1.01);
+            box-shadow: 0 16px 56px rgba(24, 33, 27, 0.3);
+        }
+
+        /* Feature showcase — alternating rows */
+        .showcase {
+            margin-bottom: 48px;
+        }
+
+        .showcase-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 32px;
+            padding: 28px 28px;
+            margin-bottom: 14px;
+            background: rgba(215, 194, 159, 0.55);
+            border: 1px solid rgba(24, 33, 27, 0.08);
+            border-radius: 24px;
+            backdrop-filter: blur(4px);
+        }
+
+        .showcase-item:nth-child(even) {
+            flex-direction: row-reverse;
+        }
+
+        .showcase-text {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .showcase-badge {
+            flex-shrink: 0;
+            width: 56px;
+            height: 56px;
+            border-radius: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            font-weight: 700;
+        }
+
+        .showcase-badge--ember { background: rgba(196, 90, 45, 0.12); color: var(--ember); }
+        .showcase-badge--sea { background: rgba(26, 127, 142, 0.12); color: var(--sea); }
+        .showcase-badge--moss { background: rgba(58, 107, 53, 0.12); color: var(--moss); }
+        .showcase-badge--ink { background: rgba(24, 33, 27, 0.08); color: var(--ink); }
+
+        .showcase-content h3 {
+            font-size: 1.2rem;
+            font-weight: 700;
+            margin-bottom: 8px;
+            letter-spacing: -0.01em;
+        }
+
+        .showcase-content p {
+            font-size: 0.95rem;
+            color: var(--ink-soft);
+            line-height: 1.55;
+        }
+
+        .showcase-screenshot {
+            width: 100%;
+            margin-top: 16px;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(24, 33, 27, 0.15);
+            border: 1px solid rgba(24, 33, 27, 0.1);
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .showcase-screenshot:hover {
+            transform: scale(1.02);
+            box-shadow: 0 8px 32px rgba(24, 33, 27, 0.22);
+        }
+
+        .showcase-screenshot-wrap {
+            position: relative;
+            display: inline-block;
+            width: 100%;
+            margin-top: 16px;
+        }
+
+        .screenshot-expand-btn {
+            position: absolute;
+            bottom: 12px;
+            right: 12px;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            padding: 5px 12px;
+            background: rgba(24, 33, 27, 0.82);
+            color: var(--paper);
+            border: none;
+            border-radius: 8px;
+            font-size: 0.72rem;
+            font-weight: 500;
+            cursor: pointer;
+            opacity: 0.85;
+            transition: opacity 0.2s;
+            pointer-events: none;
+        }
+
+        .showcase-screenshot-wrap:hover .screenshot-expand-btn {
+            opacity: 1;
+        }
+
+        .showcase-screenshot-label {
+            display: block;
+            margin-top: 8px;
+            font-size: 0.75rem;
+            color: var(--ink-soft);
+            text-align: center;
+            font-style: italic;
+        }
+
+        /* Lightbox */
+        .lightbox {
+            display: none;
+            position: fixed;
+            inset: 0;
+            z-index: 9999;
+            background: rgba(24, 33, 27, 0.88);
+            backdrop-filter: blur(6px);
+            align-items: center;
+            justify-content: center;
+            padding: 32px;
+            cursor: zoom-out;
+        }
+
+        .lightbox.active {
+            display: flex;
+        }
+
+        .lightbox img {
+            max-width: 95vw;
+            max-height: 90vh;
+            border-radius: 12px;
+            box-shadow: 0 20px 80px rgba(0, 0, 0, 0.4);
+        }
+
+        .lightbox-close {
+            position: absolute;
+            top: 20px;
+            right: 24px;
+            background: rgba(245, 239, 229, 0.15);
+            border: 1px solid rgba(245, 239, 229, 0.2);
+            color: var(--paper);
+            width: 40px;
+            height: 40px;
+            border-radius: 10px;
+            font-size: 1.4rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.2s;
+        }
+
+        .lightbox-close:hover {
+            background: rgba(245, 239, 229, 0.25);
+        }
+
+        /* Secondary features — compact list */
+        .extras {
+            margin-bottom: 48px;
+        }
+
+        .extras h2 {
+            text-align: center;
+            font-size: 1.4rem;
+            font-weight: 700;
+            margin-bottom: 20px;
+            letter-spacing: -0.01em;
+        }
+
+        .extras-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 12px;
+        }
+
+        .extra-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            padding: 16px 20px;
+            background: rgba(215, 194, 159, 0.4);
+            border: 1px solid rgba(24, 33, 27, 0.06);
+            border-radius: 14px;
+        }
+
+        .extra-item span {
+            font-size: 1.1rem;
+            flex-shrink: 0;
+            margin-top: 1px;
+        }
+
+        .extra-item p {
+            font-size: 0.85rem;
+            color: var(--ink-soft);
+            line-height: 1.4;
+        }
+
+        .extra-item strong {
+            color: var(--ink);
+        }
+
+        /* Footer */
+        .github-star {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 14px;
+            background: rgba(215, 194, 159, 0.5);
+            border: 1px solid rgba(24, 33, 27, 0.08);
+            border-radius: 8px;
+            font-size: 0.82rem;
+            font-weight: 500;
+            color: var(--ink-soft);
+            text-decoration: none;
+            transition: border-color 0.2s, background 0.2s;
+        }
+
+        .github-star:hover {
+            border-color: rgba(24, 33, 27, 0.18);
+            background: rgba(215, 194, 159, 0.7);
+            text-decoration: none;
+        }
+
+        .github-star svg {
+            width: 14px;
+            height: 14px;
+        }
+
+        .version-badge {
+            display: inline-block;
+            padding: 3px 10px;
+            background: rgba(24, 33, 27, 0.07);
+            border-radius: 6px;
+            font-size: 0.78rem;
+            font-weight: 500;
+            color: var(--ink-soft);
+            letter-spacing: 0.01em;
+        }
+
+        footer {
+            text-align: center;
+            padding: 32px 0;
+            border-top: 1px solid rgba(24, 33, 27, 0.1);
+            color: var(--ink-soft);
+            font-size: 0.82rem;
+        }
+
+        footer a {
+            color: var(--sea);
+            text-decoration: none;
+            font-weight: 500;
+        }
+
+        footer a:hover { text-decoration: underline; }
+
+        /* Responsive */
+        @media (max-width: 640px) {
+            .hero { padding: 48px 0 36px; }
+            .hero h1 { font-size: 2.2rem; }
+            .hero-tagline { font-size: 1.05rem; }
+            .hero-screenshot-wrap { margin-bottom: 40px; }
+            .pillars { gap: 24px; }
+            .pillar { max-width: 140px; }
+            .showcase-item {
+                flex-direction: column !important;
+                gap: 16px;
+                padding: 24px 20px;
+            }
+            .extras-grid { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+    <div class="wrapper">
+
+        <section class="hero">
+            <img src="https://raw.githubusercontent.com/diogojesusdev/Requii/main/requii_new_logo.png" alt="Requii" class="hero-logo">
+            <h1>Requii</h1>
+            <p style="margin-bottom: 16px;">
+                <a class="github-star" href="https://github.com/diogojesusdev/Requii" target="_blank" rel="noopener">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M11.48 3.499a.562.562 0 011.04 0l2.125 5.111a.563.563 0 00.475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 00-.182.557l1.285 5.385a.562.562 0 01-.84.61l-4.725-2.885a.563.563 0 00-.586 0L6.982 20.54a.562.562 0 01-.84-.61l1.285-5.386a.562.562 0 00-.182-.557l-4.204-3.602a.563.563 0 01.321-.988l5.518-.442a.563.563 0 00.475-.345L11.48 3.5z"/>
+                    </svg>
+                    <span>Star on GitHub</span>
+                    <span id="star-count"></span>
+                </a>
+            </p>
+            <p class="hero-tagline">A local-first, file-based API client. Free, open source, and designed to stay out of your way.</p>
+        </section>
+
+        <section class="download-area">
+            <a id="download-btn" class="btn-download" href="https://github.com/diogojesusdev/Requii/releases/latest">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5m0 0l5-5m-5 5V3"/>
+                </svg>
+                <span id="download-label">Download for your OS</span>
+            </a>
+            <p class="download-meta">
+                <span id="download-info">Detecting your platform…</span>
+                &nbsp;·&nbsp;
+                <a href="https://github.com/diogojesusdev/Requii/releases/latest">All platforms</a>
+            </p>
+        </section>
+
+        <section class="pillars">
+            <div class="pillar">
+                <div class="pillar-icon">🔒</div>
+                <h3>Private</h3>
+                <p>No telemetry, data stays local</p>
+            </div>
+            <div class="pillar">
+                <div class="pillar-icon">⚡</div>
+                <h3>Lightweight</h3>
+                <p>Fast startup, low memory</p>
+            </div>
+            <div class="pillar">
+                <div class="pillar-icon">🌐</div>
+                <h3>Offline</h3>
+                <p>No internet required</p>
+            </div>
+            <div class="pillar">
+                <div class="pillar-icon">🆓</div>
+                <h3>Free</h3>
+                <p>All features, no paywall</p>
+            </div>
+        </section>
+
+        <div class="hero-screenshot-wrap" onclick="openLightbox(this)">
+            <img src="screenshots/request-editor.png" alt="Requii — Request editor with environments and nested variables" class="hero-screenshot">
+            <span class="screenshot-expand-btn">🔍 Expand</span>
+        </div>
+
+        <section class="showcase">
+            <div class="showcase-item">
+                <div class="showcase-badge showcase-badge--ember">📁</div>
+                <div class="showcase-content">
+                    <h3>Everything Is a File</h3>
+                    <p>Requests, folders, and environments are stored as plain files on disk. You can version them with Git, back them up however you like, or move a workspace to another machine by copying a folder.</p>
+                    <div class="showcase-screenshot-wrap" onclick="openLightbox(this)" style="max-width: 320px;">
+                        <img src="screenshots/workspace-tree.png" alt="Workspace folder tree with organized requests" class="showcase-screenshot">
+                        <span class="screenshot-expand-btn">🔍 Expand</span>
+                    </div>
+                    <span class="showcase-screenshot-label">Organized workspace with folders and requests</span>
+                </div>
+            </div>
+
+            <div class="showcase-item">
+                <div class="showcase-badge showcase-badge--sea">🤖</div>
+                <div class="showcase-content">
+                    <h3>Agent &amp; AI Friendly</h3>
+                    <p>Because workspaces are just files on your file system, AI coding agents and automation scripts can read, create, and modify requests directly — no proprietary API or plugin layer needed. Point an agent at the workspace folder and it works.</p>
+                </div>
+            </div>
+
+            <div class="showcase-item">
+                <div class="showcase-badge showcase-badge--moss">🔑</div>
+                <div class="showcase-content">
+                    <h3>Built-in Auth</h3>
+                    <p>OAuth2 (authorization code, client credentials, PKCE), Bearer tokens, and Basic auth are supported out of the box. Configure per environment — token acquisition and injection are handled for you.</p>
+                    <div class="showcase-screenshot-wrap" onclick="openLightbox(this)">
+                        <img src="screenshots/oauth2.png" alt="OAuth2 configuration panel" class="showcase-screenshot">
+                        <span class="screenshot-expand-btn">🔍 Expand</span>
+                    </div>
+                    <span class="showcase-screenshot-label">Full OAuth2 setup with client credentials, scopes, and token management</span>
+                </div>
+            </div>
+
+            <div class="showcase-item">
+                <div class="showcase-badge showcase-badge--ink">🧩</div>
+                <div class="showcase-content">
+                    <h3>Flexible Environments</h3>
+                    <p>Nested variables with cross-references and interpolation across URLs, headers, and bodies. Define a base environment and layer overrides for dev, staging, and production — switch with one click.</p>
+                    <div class="showcase-screenshot-wrap" onclick="openLightbox(this)">
+                        <img src="screenshots/nested-environments.png" alt="Nested environment variables editor" class="showcase-screenshot">
+                        <span class="screenshot-expand-btn">🔍 Expand</span>
+                    </div>
+                    <span class="showcase-screenshot-label">Nested objects like database config and feature flags per environment</span>
+                </div>
+            </div>
+
+            <div class="showcase-item">
+                <div class="showcase-badge showcase-badge--sea">✏️</div>
+                <div class="showcase-content">
+                    <h3>Smart Code Editor</h3>
+                    <p>Request bodies are edited in a full-featured code editor with syntax highlighting, auto-formatting, and completions for JSON, XML, and other formats — the same engine behind VS Code.</p>
+                    <div class="showcase-screenshot-wrap" onclick="openLightbox(this)">
+                        <img src="screenshots/autocomplete.png" alt="Variable autocomplete with suggestions" class="showcase-screenshot">
+                        <span class="screenshot-expand-btn">🔍 Expand</span>
+                    </div>
+                    <span class="showcase-screenshot-label">Autocomplete suggests variables as you type, with resolved values</span>
+                </div>
+            </div>
+
+            <div class="showcase-item">
+                <div class="showcase-badge showcase-badge--ember">🚫</div>
+                <div class="showcase-content">
+                    <h3>No Account Needed</h3>
+                    <p>Open the app and start working. No sign-up, no login, no cloud dependency. Your data stays on your machine — suitable for air-gapped and security-sensitive environments.</p>
+                </div>
+            </div>
+
+            <div class="showcase-item">
+                <div class="showcase-badge showcase-badge--moss">🤝</div>
+                <div class="showcase-content">
+                    <h3>Easy to Share With Others</h3>
+                    <p>Export an entire workspace — or just a selection of requests, folders, and environments — as a single JSON file. Send it to a colleague via Slack, email, or commit it to your repo. They import it and have the same setup in seconds. You can also share the workspace folder directly since it's just files.</p>
+                </div>
+            </div>
+        </section>
+
+        <section class="extras">
+            <h2>Also included</h2>
+            <div class="extras-grid">
+                <div class="extra-item">
+                    <span>📋</span>
+                    <p><strong>Copy as cURL</strong> — export to PowerShell, CMD, or Bash</p>
+                </div>
+                <div class="extra-item">
+                    <span>📂</span>
+                    <p><strong>Drag &amp; drop</strong> — nested folders with persisted order</p>
+                </div>
+                <div class="extra-item">
+                    <span>🔄</span>
+                    <p><strong>Insomnia import</strong> — migrate existing collections directly</p>
+                </div>
+                <div class="extra-item">
+                    <span>🖥️</span>
+                    <p><strong>Cross-platform</strong> — Windows, macOS, and Linux installers</p>
+                </div>
+                <div class="extra-item">
+                    <span>🎨</span>
+                    <p><strong>Focused UI</strong> — minimal interface, no clutter</p>
+                </div>
+                <div class="extra-item">
+                    <span>📖</span>
+                    <p><strong>Open source</strong> — MIT licensed, inspect or contribute</p>
+                </div>
+            </div>
+        </section>
+
+        <footer>
+            <p>
+                <span id="app-version" class="version-badge" style="display:none;"></span>
+            </p>
+            <p style="margin-top: 12px;">
+                <a href="https://github.com/diogojesusdev/Requii">GitHub</a>
+                &nbsp;·&nbsp;
+                <a href="https://github.com/diogojesusdev/Requii/releases">Releases</a>
+                &nbsp;·&nbsp;
+                MIT License
+            </p>
+        </footer>
+    </div>
+
+    <!-- Lightbox overlay -->
+    <div class="lightbox" id="lightbox" onclick="closeLightbox()">
+        <button class="lightbox-close" onclick="closeLightbox()">✕</button>
+        <img id="lightbox-img" src="" alt="Expanded screenshot">
+    </div>
+
+    <script>
+        function openLightbox(wrap) {
+            var img = wrap.querySelector('img');
+            var lightbox = document.getElementById('lightbox');
+            document.getElementById('lightbox-img').src = img.src;
+            lightbox.classList.add('active');
+            document.body.style.overflow = 'hidden';
+        }
+        function closeLightbox() {
+            document.getElementById('lightbox').classList.remove('active');
+            document.body.style.overflow = '';
+        }
+        document.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape') closeLightbox();
+        });
+    </script>
+
+    <script>
+        (function () {
+            const REPO = 'diogojesusdev/Requii';
+            const btn = document.getElementById('download-btn');
+            const label = document.getElementById('download-label');
+            const info = document.getElementById('download-info');
+
+            const ua = navigator.userAgent.toLowerCase();
+            let os = 'unknown';
+            if (ua.includes('win')) os = 'windows';
+            else if (ua.includes('mac')) os = 'macos';
+            else if (ua.includes('linux')) os = 'linux';
+
+            const osLabels = { windows: 'Windows', macos: 'macOS', linux: 'Linux' };
+            const osExtensions = {
+                windows: ['.exe', '.msi'],
+                macos: ['.dmg', '.pkg'],
+                linux: ['.deb', '.rpm']
+            };
+
+            if (os !== 'unknown') {
+                label.textContent = 'Download for ' + osLabels[os];
+                info.textContent = 'Detected: ' + osLabels[os];
+            } else {
+                info.textContent = 'See all platforms on the releases page';
+            }
+
+            fetch('https://api.github.com/repos/' + REPO + '/releases/latest')
+                .then(function (r) { return r.json(); })
+                .then(function (release) {
+                    if (!release || !release.assets) return;
+
+                    // Show version
+                    var version = release.tag_name.replace(/^v/, '');
+                    var versionEl = document.getElementById('app-version');
+                    versionEl.textContent = 'v' + version;
+                    versionEl.style.display = 'inline-block';
+
+                    var extensions = osExtensions[os] || [];
+                    var preferred = { windows: '.exe', macos: '.dmg', linux: '.deb' };
+                    var pref = preferred[os];
+
+                    var asset = null;
+                    if (pref) {
+                        asset = release.assets.find(function (a) { return a.name.endsWith(pref); });
+                    }
+                    if (!asset) {
+                        asset = release.assets.find(function (a) {
+                            return extensions.some(function (ext) { return a.name.endsWith(ext); });
+                        });
+                    }
+
+                    if (asset) {
+                        btn.href = asset.browser_download_url;
+                        var sizeMB = (asset.size / 1024 / 1024).toFixed(1);
+                        info.textContent = (osLabels[os] || 'Your OS') + ' · v' + version + ' · ' + sizeMB + ' MB';
+                    } else {
+                        btn.href = release.html_url;
+                        info.textContent = 'v' + version + ' — see all downloads';
+                    }
+                })
+                .catch(function () {});
+
+            // Fetch star count
+            fetch('https://api.github.com/repos/' + REPO)
+                .then(function (r) { return r.json(); })
+                .then(function (repo) {
+                    if (!repo || !repo.stargazers_count) return;
+                    var count = repo.stargazers_count;
+                    var display = count >= 1000 ? (count / 1000).toFixed(1) + 'k' : String(count);
+                    document.getElementById('star-count').textContent = '· ' + display;
+                })
+                .catch(function () {});
+        })();
+    </script>
+</body>
+</html>
