@@ -23,6 +23,7 @@ Most API clients lock your data in proprietary formats, require accounts, or gat
 
 - **File-based workspaces** — Requests, folders, and environments are plain JSON files on disk. Back them up, version them with Git, or move them to another machine by copying a folder.
 - **AI & automation friendly** — Because everything is a file, AI coding agents and scripts can read, create, and modify requests directly. No plugins or APIs needed.
+- **Copilot skill installer built in** — Install the Requii Copilot CLI skill from inside the app (Windows/macOS) to bootstrap agent terminology and safe request execution workflow.
 - **Easy sharing** — Export a workspace (or a selection) as a single JSON file. Share via Slack, email, or commit it to your repo.
 - **Flexible environments** — Base environment + per-context overrides (dev, staging, production). Nested variables, cross-references, and interpolation everywhere.
 - **Built-in auth** — OAuth2 (authorization code, client credentials, PKCE), Bearer tokens, and Basic auth. Configure once per environment.

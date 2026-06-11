@@ -1,1 +1,0 @@
-- Allow canceling in-flight requests (replace the Send button with a red brackground and an icon that indicates cancellation)

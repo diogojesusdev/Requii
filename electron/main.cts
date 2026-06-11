@@ -1,5 +1,6 @@
 const { app, BrowserWindow, dialog, ipcMain, shell } = require('electron');
 const path = require('path');
+const os = require('os');
 const fsSync = require('fs');
 const fs = require('fs/promises');
 const https = require('https');
@@ -20,11 +21,113 @@ const WINDOWS_APP_ID = 'com.requii.app';
 const MIN_ZOOM_LEVEL = -3;
 const MAX_ZOOM_LEVEL = 8;
 const INSECURE_HTTPS_AGENT = new https.Agent({ rejectUnauthorized: false });
+const COPILOT_SKILL_NAME = 'requii-workspace';
+const COPILOT_SKILL_FILE = 'SKILL.md';
+const SUPPORTED_COPILOT_SKILL_PLATFORMS = new Set(['win32', 'darwin']);
+const REQUII_COPILOT_SKILL_MARKDOWN = [
+    '---',
+    'name: requii-workspace',
+    'description: Requii workspace assistant for discovery, safe request execution previews, and file-based updates.',
+    '---',
+    '',
+    '# Requii Workspace Assistant',
+    '',
+    'Use this skill whenever the user asks to inspect, create, edit, organize, or execute requests from Requii workspaces.',
+    '',
+    '## Requii storage model',
+    '- Requii is local and file-based.',
+    '- Managed workspaces live under `<userData>/workspaces` (constant: `MANAGED_WORKSPACES_DIRECTORY`).',
+    '- Global workspace state lives at `<userData>/workspaces-state.json` (constant: `WORKSPACE_STATE_FILE`).',
+    '- Each workspace is a directory with request JSON files plus metadata files.',
+    '',
+    '## Typical userData locations (default Electron paths)',
+    '- Windows: `%APPDATA%/requii` (for example `C:/Users/<user>/AppData/Roaming/requii`).',
+    '- macOS: `~/Library/Application Support/requii`.',
+    '- Workspace root is `<userData>/workspaces` once `userData` is resolved.',
+    '',
+    '## Workspace discovery (mandatory flow)',
+    '- Do NOT require the user to provide a workspace path upfront.',
+    '- First discover/list available workspaces from the managed root.',
+    '- If `userData` is unknown, discover candidate roots under platform app-data directories and use the one that contains `workspaces-state.json` and `workspaces/`.',
+    '- If multiple workspaces exist and the task is workspace-specific, ask the user to choose.',
+    '- If task is not workspace-specific (for example user provides full request data), do not force workspace selection.',
+    '',
+    '## Workspace file layout',
+    '- Request files: any `*.json` under workspace folders, excluding `environments.json` and `.requii-workspace.json`.',
+    '- `environments.json` stores environment state:',
+    '  - `active_environment_id`',
+    '  - `base_environment` (id `env_base`, name `Base Environment`)',
+    '  - `environments[]`',
+    '- `.requii-workspace.json` stores metadata:',
+    '  - `workspace_id`',
+    '  - `workspace_name`',
+    '  - `folder_order`',
+    '  - `folders` records `{ id, path }`',
+    '',
+    '## Environment and interpolation rules',
+    '- Resolve variables from active environment merged with base environment.',
+    '- Support interpolation format `{{variable_name}}` consistently in URL, headers, query params, auth, and body.',
+    '- Base environment values are available and should be treated as shared defaults.',
+    '',
+    '## Request execution policy (hard rule)',
+    '- Before executing any request, always show a concise preview and ask for explicit user permission.',
+    '- Preview must include: method, final URL, enabled headers (redacted when sensitive), query params, and body summary.',
+    '- If permission is denied or unclear, do not execute.',
+    '',
+    '## TLS behavior (must match Requii)',
+    '- Match Requii execution behavior: allow insecure TLS/certificates.',
+    '- For curl commands, allow insecure HTTPS (for example `-k`) when needed.',
+    '',
+    '## Secrets and environment variables',
+    '- Resolve environment interpolation values consistently (for example `{{base_url}}`).',
+    '- Treat secrets as sensitive and redact by default in previews/logs.',
+    '- Reveal raw secret values only when the user explicitly requests a specific value.',
+    '',
+    '## Write operations and consistency',
+    '- For create/update/move/rename/delete operations, show what files will change before applying.',
+    '- Keep workspace metadata and folder ordering consistent with Requii.',
+    '- Request files must remain valid Requii request JSON structures.',
+    '- When creating or moving folders, preserve/update metadata (`folder_order`, `folders`) accordingly.',
+    '',
+    '## Request file defaults',
+    '- Ensure request shape includes method/url/headers/query/body/auth in Requii-compatible format.',
+    '- Keep method uppercase (for example GET, POST).',
+    '- Body types should follow Requii conventions (`none`, `raw`, `json`, `multipart`).',
+    '- Auth should support `none`, `bearer`, `basic`, `oauth2` with normalized oauth2 fields.',
+    '',
+    '## Safety defaults',
+    '- Read-only first when intent is unclear.',
+    '- Never execute or mutate silently.',
+].join('\n');
 
 let activeRequestAbortController: AbortController | null = null;
 
 app.commandLine.appendSwitch('ignore-certificate-errors');
 process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
+
+function getCopilotSkillInstallDirectory() {
+    if (!SUPPORTED_COPILOT_SKILL_PLATFORMS.has(process.platform)) {
+        throw new Error('Copilot skill installation is currently supported on Windows and macOS.');
+    }
+
+    return path.join(os.homedir(), '.copilot', 'skills', COPILOT_SKILL_NAME);
+}
+
+async function installRequiiCopilotSkill() {
+    const installDirectory = getCopilotSkillInstallDirectory();
+    await fs.mkdir(installDirectory, { recursive: true });
+
+    const skillFilePath = path.join(installDirectory, COPILOT_SKILL_FILE);
+    const updated = await fileExists(skillFilePath);
+    await fs.writeFile(skillFilePath, REQUII_COPILOT_SKILL_MARKDOWN, 'utf8');
+
+    return {
+        platform: process.platform,
+        installDirectory,
+        skillFilePath,
+        updated,
+    };
+}
 
 function serializeWindowState(window) {
     return {
@@ -2969,4 +3072,8 @@ ipcMain.handle('file:pick', async () => {
     }
 
     return result.filePaths[0];
+});
+
+ipcMain.handle('copilot-skill:install', async () => {
+    return installRequiiCopilotSkill();
 });

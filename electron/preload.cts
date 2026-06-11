@@ -52,4 +52,5 @@ contextBridge.exposeInMainWorld('requii', {
     exportRequest: (workspacePath, request) => ipcRenderer.invoke('export:request', { workspacePath, request }),
     importPayload: (workspacePath) => ipcRenderer.invoke('import:payload', { workspacePath }),
     pickFile: () => ipcRenderer.invoke('file:pick'),
+    installCopilotSkill: () => ipcRenderer.invoke('copilot-skill:install'),
 });

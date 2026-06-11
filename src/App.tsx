@@ -786,6 +786,23 @@ function App() {
         }
     }
 
+    async function installCopilotSkill() {
+        setIsBusy(true);
+        setStatus('Installing Requii Copilot skill...');
+        try {
+            const result = await requiiIpc.installCopilotSkill();
+            const installDirectory = typeof result?.installDirectory === 'string' ? result.installDirectory : '';
+            const installationLabel = result?.updated ? 'Updated' : 'Installed';
+            setStatus(installDirectory
+                ? `${installationLabel} Copilot skill in ${installDirectory}.`
+                : `${installationLabel} Copilot skill.`);
+        } catch (error) {
+            setStatus(error.message || 'Failed to install Copilot skill.');
+        } finally {
+            setIsBusy(false);
+        }
+    }
+
     async function deleteManagedWorkspace(workspace) {
         if (!workspace) {
             return;
@@ -1935,6 +1952,10 @@ function App() {
                                 <span>New Workspace</span>
                             </button>
                             <ImportWorkspaceMenu onImportWorkspace={importManagedWorkspace} isBusy={isBusy} buttonClassName="ghost-button inline-flex items-center gap-2 px-2.5 py-1.5" />
+                            <button className="ghost-button inline-flex items-center gap-2" onClick={() => void installCopilotSkill()} disabled={isBusy} type="button">
+                                <TerminalIcon />
+                                <span>Install Copilot Skill</span>
+                            </button>
                         </div>
                         <div className="mt-3">
                             <ScrollSliderList label="Browse workspaces" maxHeight={196}>

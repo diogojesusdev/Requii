@@ -98,4 +98,7 @@ export const requiiIpc = {
     pickFile() {
         return window.requii.pickFile();
     },
+    installCopilotSkill() {
+        return window.requii.installCopilotSkill();
+    },
 };

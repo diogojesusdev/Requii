@@ -44,6 +44,7 @@ declare global {
         exportRequest: (workspacePath: string, request: any) => Promise<string | null>;
         importPayload: (workspacePath: string) => Promise<any>;
         pickFile: () => Promise<string | null>;
+        installCopilotSkill: () => Promise<any>;
     }
 
     interface Window {
