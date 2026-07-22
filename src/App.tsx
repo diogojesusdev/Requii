@@ -171,6 +171,7 @@ function App() {
     const [composer, setComposer] = useState(emptyComposer());
     const [responseViewer, setResponseViewer] = useState(null);
     const [curlViewer, setCurlViewer] = useState(null);
+    const [curlImportDialog, setCurlImportDialog] = useState(null);
     const [workspaceExportDialog, setWorkspaceExportDialog] = useState(null);
     const [paneSizes, setPaneSizes] = useState(readStoredPaneSizes);
     const [requestDragState, setRequestDragState] = useState(null);
@@ -1106,6 +1107,57 @@ function App() {
 
     function closeComposer() {
         setComposer(emptyComposer());
+    }
+
+    function openCurlImportDialog(parentPath = '') {
+        if (!workspacePath) {
+            return;
+        }
+
+        setCurlImportDialog({
+            parentPath,
+            command: '',
+            name: '',
+        });
+    }
+
+    function closeCurlImportDialog() {
+        setCurlImportDialog(null);
+    }
+
+    async function submitCurlImport() {
+        if (!workspacePath || !curlImportDialog?.command?.trim()) {
+            return;
+        }
+
+        setIsBusy(true);
+        setStatus('Importing cURL command...');
+        try {
+            const beforeSnapshot = createFileStructureSnapshot();
+            const request = ensureRequestShape(await requiiIpc.createRequestFromCurl(
+                workspacePath,
+                curlImportDialog.parentPath || '',
+                curlImportDialog.command,
+                curlImportDialog.name,
+            ));
+            const nextRequests = [...requests, request];
+            const nextExpandedFolderPaths = [...new Set([...expandedFolderPaths, ...getFolderAncestors(request.path || curlImportDialog.parentPath || '')])];
+            const nextTabState = buildRequestTabState(request.id);
+
+            setRequests(nextRequests);
+            queueTreeReveal({ type: 'request', requestId: request.id, folderPath: request.path || curlImportDialog.parentPath || '' });
+            openRequest(request.id);
+            if (!folders.includes(curlImportDialog.parentPath) && curlImportDialog.parentPath) {
+                setFolders((previous) => [...previous, curlImportDialog.parentPath]);
+            }
+            pushFileStructureHistory(beforeSnapshot, buildFileStructureSnapshot(nextRequests, folders, { expandedFolderPaths: nextExpandedFolderPaths, ...nextTabState }));
+            setStatus(`Imported cURL command as ${request.name}.`);
+            closeCurlImportDialog();
+        } catch (error) {
+            setStatus(error.message || 'Failed to import cURL command.');
+        } finally {
+            setIsBusy(false);
+        }
     }
 
     async function submitComposer() {
@@ -2057,6 +2109,9 @@ function App() {
                                 <button className="icon-action-button" onClick={() => openComposer('request')} title="Create request at root" disabled={!workspacePath || isBusy}>
                                     <NewRequestIcon />
                                 </button>
+                                <button className="icon-action-button" onClick={() => openCurlImportDialog('')} title="Import request from cURL" aria-label="Import request from cURL" disabled={!workspacePath || isBusy} type="button">
+                                    <TerminalIcon />
+                                </button>
                             </div>
                         </div>
                     </div>
@@ -2178,6 +2233,7 @@ function App() {
                     : null}
 
                 {composer.open ? <CreateItemDialog composer={composer} setComposer={setComposer} onClose={closeComposer} onSubmit={submitComposer} isBusy={isBusy} /> : null}
+                {curlImportDialog ? <CurlImportDialog value={curlImportDialog} onChange={setCurlImportDialog} onClose={closeCurlImportDialog} onSubmit={submitCurlImport} isBusy={isBusy} /> : null}
                 {workspaceExportDialog ? <WorkspaceExportDialog workspace={workspaceExportDialog} onClose={() => setWorkspaceExportDialog(null)} onSubmit={exportWorkspace} isBusy={isBusy} /> : null}
                 {draggedFolderPath && folderDragState
                     ? createPortal(
@@ -2302,6 +2358,72 @@ function CreateItemDialog({ composer, setComposer, onClose, onSubmit, isBusy }) 
                     <button className="primary-button" onClick={onSubmit} disabled={isBusy || !composer.name.trim()}>
                         Create
                     </button>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+function CurlImportDialog({ value, onChange, onClose, onSubmit, isBusy }) {
+    useEffect(() => {
+        function handleKeyDown(event) {
+            if (event.key === 'Escape') {
+                onClose();
+            }
+        }
+
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [onClose]);
+
+    return (
+        <div className="fixed inset-0 z-[260] flex items-center justify-center bg-ink/35 p-4 backdrop-blur-sm">
+            <div className="flex w-full max-w-4xl flex-col rounded-3xl border border-black/15 bg-[#d7c19d] p-5 shadow-2xl">
+                <div className="flex items-start justify-between gap-4">
+                    <div>
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-ink/45">Import cURL</p>
+                        <h2 className="mt-1 flex items-center gap-2 text-2xl font-black tracking-tight text-ink">
+                            <TerminalIcon />
+                            <span>Create Request from cURL</span>
+                        </h2>
+                        <p className="mt-2 text-sm text-ink/65">Paste a command from Postman, Insomnia, a terminal, or Requii's cURL export.</p>
+                    </div>
+                    <button className="icon-action-button" onClick={onClose} title="Close cURL import" type="button">
+                        <CloseIcon />
+                    </button>
+                </div>
+                <label className="mt-5 block text-sm font-semibold text-ink/70">
+                    <span className="mb-1.5 block">Request name</span>
+                    <input
+                        className="field"
+                        value={value.name || ''}
+                        onChange={(event) => onChange((previous) => ({ ...previous, name: event.target.value }))}
+                        placeholder="Optional; derived from the URL when left blank"
+                        spellCheck={false}
+                    />
+                </label>
+                <label className="mt-4 block text-sm font-semibold text-ink/70">
+                    <span className="mb-1.5 block">cURL command</span>
+                    <textarea
+                        autoFocus
+                        className="field min-h-[280px] resize-y font-mono text-sm leading-6"
+                        value={value.command || ''}
+                        onChange={(event) => onChange((previous) => ({ ...previous, command: event.target.value }))}
+                        placeholder={'curl --request POST --url https://api.example.com/users --header "Content-Type: application/json" --data-raw \'{"name":"Ada"}\''}
+                        spellCheck={false}
+                    />
+                </label>
+                <div className="mt-5 flex items-center justify-between gap-3">
+                    <p className="text-sm text-ink/60">{value.parentPath ? `Location: ${value.parentPath}` : 'Location: workspace root'}</p>
+                    <div className="flex gap-2">
+                        <button className="ghost-button" onClick={onClose} disabled={isBusy} type="button">
+                            Cancel
+                        </button>
+                        <button className="primary-button inline-flex items-center gap-2" onClick={() => void onSubmit()} disabled={isBusy || !value.command?.trim()} type="button">
+                            <TerminalIcon />
+                            <span>Import Request</span>
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
