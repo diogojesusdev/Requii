@@ -35,6 +35,7 @@ declare global {
         deleteFolder: (workspacePath: string, folderPath: string) => Promise<any>;
         deleteRequest: (workspacePath: string, request: any) => Promise<any>;
         createRequest: (workspacePath: string, parentPath: string, name: string) => Promise<any>;
+        createRequestFromCurl: (workspacePath: string, parentPath: string, command: string, name?: string) => Promise<any>;
         saveEnvironments: (workspacePath: string, environments: any) => Promise<any>;
         fetchOAuth2Token: (oauth2: any, activeEnvironment: any) => Promise<any>;
         executeRequest: (request: any, activeEnvironment: any) => Promise<any>;
