@@ -71,6 +71,9 @@ export const requiiIpc = {
     createRequest(workspacePath, parentPath, name) {
         return window.requii.createRequest(workspacePath, parentPath, name);
     },
+    createRequestFromCurl(workspacePath, parentPath, command, name) {
+        return window.requii.createRequestFromCurl(workspacePath, parentPath, command, name);
+    },
     saveEnvironments(workspacePath, environments) {
         return window.requii.saveEnvironments(workspacePath, environments);
     },

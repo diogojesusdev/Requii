@@ -39,6 +39,8 @@ contextBridge.exposeInMainWorld('requii', {
         ipcRenderer.invoke('request:delete', { workspacePath, request }),
     createRequest: (workspacePath, parentPath, name) =>
         ipcRenderer.invoke('request:create', { workspacePath, parentPath, name }),
+    createRequestFromCurl: (workspacePath, parentPath, command, name) =>
+        ipcRenderer.invoke('request:create-from-curl', { workspacePath, parentPath, command, name }),
     saveEnvironments: (workspacePath, environments) =>
         ipcRenderer.invoke('environment:save', { workspacePath, environments }),
     fetchOAuth2Token: (oauth2, activeEnvironment) =>

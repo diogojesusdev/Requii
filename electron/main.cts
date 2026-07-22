@@ -380,6 +380,402 @@ function defaultRequest(name = 'Untitled Request') {
     };
 }
 
+function createEnabledRow(key, value) {
+    return { key: String(key || ''), value: String(value || ''), enabled: true };
+}
+
+function normalizeCurlInput(command) {
+    return String(command || '')
+        .replace(/\r\n/g, '\n')
+        .replace(/\r/g, '\n')
+        .replace(/`[ \t]*\n/g, ' ')
+        .replace(/\^[ \t]*\n/g, ' ')
+        .replace(/\\[ \t]*\n/g, ' ');
+}
+
+function decodeAnsiCurlEscape(character) {
+    if (character === 'n') return '\n';
+    if (character === 'r') return '\r';
+    if (character === 't') return '\t';
+    if (character === 'b') return '\b';
+    if (character === 'f') return '\f';
+    if (character === 'v') return '\v';
+    return character;
+}
+
+function tokenizeCurlCommand(command) {
+    const normalizedCommand = normalizeCurlInput(command).trim();
+    const tokens = [];
+    let current = '';
+    let quote = '';
+    let ansiQuote = false;
+
+    for (let index = 0; index < normalizedCommand.length; index += 1) {
+        const character = normalizedCommand[index];
+        const nextCharacter = normalizedCommand[index + 1] || '';
+
+        if (quote) {
+            if (quote === "'" && character === "'" && nextCharacter === "'") {
+                current += "'";
+                index += 1;
+                continue;
+            }
+
+            if (character === quote) {
+                quote = '';
+                ansiQuote = false;
+                continue;
+            }
+
+            if (character === '\\' && nextCharacter) {
+                if (ansiQuote) {
+                    current += decodeAnsiCurlEscape(nextCharacter);
+                    index += 1;
+                    continue;
+                }
+
+                if (quote === '"' && ['\\', '"', '$', '`'].includes(nextCharacter)) {
+                    current += nextCharacter;
+                    index += 1;
+                    continue;
+                }
+            }
+
+            current += character;
+            continue;
+        }
+
+        if (/\s/.test(character)) {
+            if (current) {
+                tokens.push(current);
+                current = '';
+            }
+            continue;
+        }
+
+        if (character === '$' && nextCharacter === "'") {
+            quote = "'";
+            ansiQuote = true;
+            index += 1;
+            continue;
+        }
+
+        if (character === "'" || character === '"') {
+            quote = character;
+            continue;
+        }
+
+        if ((character === '\\' || character === '^') && nextCharacter) {
+            current += nextCharacter;
+            index += 1;
+            continue;
+        }
+
+        current += character;
+    }
+
+    if (quote) {
+        throw new Error('The cURL command has an unterminated quoted value.');
+    }
+
+    if (current) {
+        tokens.push(current);
+    }
+
+    return tokens;
+}
+
+function isCurlCommandName(token) {
+    const normalizedToken = String(token || '').trim().toLowerCase();
+    return normalizedToken === 'curl' || normalizedToken === 'curl.exe';
+}
+
+function parseHeaderLine(headerLine) {
+    const separatorIndex = String(headerLine || '').indexOf(':');
+    if (separatorIndex === -1) {
+        throw new Error(`Header "${headerLine}" must use the "Name: value" format.`);
+    }
+
+    const key = headerLine.slice(0, separatorIndex).trim();
+    const value = headerLine.slice(separatorIndex + 1).trim();
+    if (!key) {
+        throw new Error('Header names cannot be empty.');
+    }
+
+    return createEnabledRow(key, value);
+}
+
+function appendCookieHeader(headers, cookieValue) {
+    const value = String(cookieValue || '').trim();
+    if (!value) {
+        return;
+    }
+
+    if (value.startsWith('@')) {
+        throw new Error('Importing cookies from files is not supported. Paste the cookie value directly in the cURL command.');
+    }
+
+    const existingCookieHeader = headers.find((header) => header.key.toLowerCase() === 'cookie');
+    if (existingCookieHeader) {
+        existingCookieHeader.value = `${existingCookieHeader.value}; ${value}`;
+    } else {
+        headers.push(createEnabledRow('Cookie', value));
+    }
+}
+
+function splitKeyValueField(value, flagName) {
+    const separatorIndex = String(value || '').indexOf('=');
+    if (separatorIndex === -1) {
+        throw new Error(`${flagName} values must use the "name=value" format.`);
+    }
+
+    const key = value.slice(0, separatorIndex);
+    const entryValue = value.slice(separatorIndex + 1);
+    if (!key) {
+        throw new Error(`${flagName} field names cannot be empty.`);
+    }
+
+    return { key, value: entryValue };
+}
+
+function parseDataUrlEncodedRows(dataValues) {
+    const rows = [];
+
+    for (const dataValue of dataValues) {
+        const entries = new URLSearchParams(String(dataValue || ''));
+        for (const [key, value] of entries.entries()) {
+            rows.push(createEnabledRow(key, value));
+        }
+    }
+
+    return rows;
+}
+
+function parseCurlUrl(rawUrl) {
+    const parsedUrl = new URL(String(rawUrl || '').trim());
+    const queryParams = [];
+
+    for (const [key, value] of parsedUrl.searchParams.entries()) {
+        queryParams.push(createEnabledRow(key, value));
+    }
+
+    parsedUrl.search = '';
+    return {
+        url: parsedUrl.toString(),
+        queryParams,
+    };
+}
+
+function deriveRequestNameFromUrl(url) {
+    try {
+        const parsedUrl = new URL(url);
+        const pathSegment = parsedUrl.pathname.split('/').filter(Boolean).pop();
+        return pathSegment || parsedUrl.hostname || 'Imported cURL Request';
+    } catch {
+        return 'Imported cURL Request';
+    }
+}
+
+function getNextCurlValue(tokens, index, flagName) {
+    const nextValue = tokens[index + 1];
+    if (typeof nextValue !== 'string' || !nextValue) {
+        throw new Error(`${flagName} requires a value.`);
+    }
+
+    return nextValue;
+}
+
+function parseCurlCommandToRequest(command, name = '') {
+    const tokens = tokenizeCurlCommand(command);
+    if (tokens.length === 0) {
+        throw new Error('Paste a cURL command before importing.');
+    }
+
+    let index = isCurlCommandName(tokens[0]) ? 1 : 0;
+    let method = '';
+    let rawUrl = '';
+    const headers = [];
+    const queryParams = [];
+    const dataValues = [];
+    const multipartFields = [];
+    let useDataAsQueryParams = false;
+    let auth = normalizeAuthShape({ type: 'none' });
+
+    const flagsWithValues = new Set([
+        '-K', '--config', '-m', '--max-time', '--connect-timeout', '--retry', '--retry-delay',
+        '--speed-limit', '--speed-time', '-o', '--output', '-O', '--remote-name', '-x', '--proxy',
+        '--proxy-user', '--interface', '--limit-rate', '--ftp-method', '-w', '--write-out', '--request-target',
+        '--connect-to', '--resolve',
+    ]);
+    const flagsWithoutValues = new Set([
+        '-0', '-1', '-2', '-3', '-4', '-6', '--http1.0', '--http1.1', '--http2', '--http3',
+        '--digest', '--form-escape', '--ipv4', '--ipv6', '--location-trusted', '--no-buffer',
+        '--remote-header-name', '--ssl', '--ssl-reqd', '--verbose', '-v',
+    ]);
+
+    while (index < tokens.length) {
+        const token = tokens[index];
+
+        if (token === '--') {
+            index += 1;
+            continue;
+        }
+
+        if (!token.startsWith('-')) {
+            rawUrl = rawUrl || token;
+            index += 1;
+            continue;
+        }
+
+        if (token === '-I' || token === '--head') {
+            method = 'HEAD';
+            index += 1;
+            continue;
+        }
+
+        if (token === '-G' || token === '--get') {
+            useDataAsQueryParams = true;
+            index += 1;
+            continue;
+        }
+
+        if (token === '-k' || token === '--insecure' || token === '-L' || token === '--location' || token === '--compressed' || token === '-s' || token === '--silent') {
+            index += 1;
+            continue;
+        }
+
+        let flag = token;
+        let attachedValue = '';
+        const equalsIndex = token.indexOf('=');
+        if (token.startsWith('--') && equalsIndex !== -1) {
+            flag = token.slice(0, equalsIndex);
+            attachedValue = token.slice(equalsIndex + 1);
+        } else if (/^-[XHAFdub]..*/.test(token)) {
+            flag = token.slice(0, 2);
+            attachedValue = token.slice(2);
+        }
+
+        const readValue = () => {
+            if (attachedValue) {
+                return attachedValue;
+            }
+
+            const value = getNextCurlValue(tokens, index, flag);
+            index += 1;
+            return value;
+        };
+
+        switch (flag) {
+            case '-X':
+            case '--request':
+                method = readValue().trim().toUpperCase();
+                break;
+            case '--url':
+                rawUrl = readValue();
+                break;
+            case '-H':
+            case '--header':
+                headers.push(parseHeaderLine(readValue()));
+                break;
+            case '-A':
+            case '--user-agent':
+                headers.push(createEnabledRow('User-Agent', readValue()));
+                break;
+            case '-e':
+            case '--referer':
+                headers.push(createEnabledRow('Referer', readValue()));
+                break;
+            case '-b':
+            case '--cookie':
+                appendCookieHeader(headers, readValue());
+                break;
+            case '-u':
+            case '--user': {
+                const credentials = readValue();
+                const separatorIndex = credentials.indexOf(':');
+                auth = normalizeAuthShape({
+                    type: 'basic',
+                    username: separatorIndex === -1 ? credentials : credentials.slice(0, separatorIndex),
+                    password: separatorIndex === -1 ? '' : credentials.slice(separatorIndex + 1),
+                });
+                break;
+            }
+            case '-d':
+            case '--data':
+            case '--data-raw':
+            case '--data-ascii':
+            case '--data-binary':
+            case '--data-urlencode': {
+                const dataValue = readValue();
+                if (dataValue.startsWith('@')) {
+                    throw new Error(`${flag} file references are not supported. Paste the request body directly in the cURL command.`);
+                }
+                dataValues.push(dataValue);
+                break;
+            }
+            case '-F':
+            case '--form':
+            case '--form-string': {
+                const { key, value } = splitKeyValueField(readValue(), flag);
+                if (value.startsWith('@') && flag !== '--form-string') {
+                    multipartFields.push({ key, value: value.slice(1), enabled: true, fieldType: 'file' });
+                } else {
+                    multipartFields.push({ key, value, enabled: true, fieldType: 'text' });
+                }
+                break;
+            }
+            default:
+                if (flagsWithValues.has(flag)) {
+                    readValue();
+                } else if (flagsWithoutValues.has(flag)) {
+                    break;
+                }
+                break;
+        }
+
+        index += 1;
+    }
+
+    if (!rawUrl) {
+        throw new Error('The cURL command does not include a URL.');
+    }
+
+    const parsed = parseCurlUrl(rawUrl);
+    queryParams.push(...parsed.queryParams);
+
+    const contentType = headers.find((header) => header.key.trim().toLowerCase() === 'content-type')?.value || '';
+    let body: any = { type: 'none', content: '' };
+
+    if (multipartFields.length > 0) {
+        body = { type: 'multipart', content: '', fields: multipartFields };
+        if (!method) {
+            method = 'POST';
+        }
+    } else if (dataValues.length > 0) {
+        if (useDataAsQueryParams) {
+            queryParams.push(...parseDataUrlEncodedRows(dataValues));
+        } else {
+            const content = dataValues.join('&');
+            const trimmedContent = content.trim();
+            const isJson = contentType.toLowerCase().includes('json') || trimmedContent.startsWith('{') || trimmedContent.startsWith('[');
+            body = { type: isJson ? 'json' : 'raw', content };
+            if (!method) {
+                method = 'POST';
+            }
+        }
+    }
+
+    return {
+        ...defaultRequest(name || deriveRequestNameFromUrl(parsed.url)),
+        method: method || 'GET',
+        url: parsed.url,
+        headers,
+        query_params: queryParams,
+        body,
+        auth,
+    };
+}
+
 function defaultEnvironments() {
     return {
         active_environment_id: 'env_default',
@@ -2808,6 +3204,17 @@ ipcMain.handle('folder:delete', async (_, { workspacePath, folderPath }) => {
 
 ipcMain.handle('request:create', async (_, { workspacePath, parentPath, name }) => {
     const request = defaultRequest(name || 'Untitled Request');
+    const targetRelativePath = await ensureUniqueRelativePath(
+        workspacePath,
+        cleanRelativePath(path.posix.join(cleanRelativePath(parentPath), buildRequestFileName(request.name))),
+    );
+
+    await writeJson(path.join(workspacePath, targetRelativePath), serializeRequest(request));
+    return normalizeRequestPayload(request, targetRelativePath);
+});
+
+ipcMain.handle('request:create-from-curl', async (_, { workspacePath, parentPath, command, name }) => {
+    const request = parseCurlCommandToRequest(command, name);
     const targetRelativePath = await ensureUniqueRelativePath(
         workspacePath,
         cleanRelativePath(path.posix.join(cleanRelativePath(parentPath), buildRequestFileName(request.name))),
