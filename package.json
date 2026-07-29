@@ -15,6 +15,7 @@
         "start": "npm run build:electron && electron .",
         "dist:win": "npm run build && powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/build-windows.ps1 installer",
         "dist:win:installer": "npm run build && powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/build-windows.ps1 installer",
+        "dist:win:portable": "npm run build && powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/build-windows-portable.ps1",
         "dist:mac": "npm run build && electron-builder --mac dmg pkg",
         "dist:mac:installer": "npm run build && electron-builder --mac dmg pkg",
         "dist:linux": "npm run build && electron-builder --linux deb rpm",
