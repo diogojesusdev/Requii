@@ -1,9 +1,35 @@
 const fs = require('fs');
 const path = require('path');
-const { rcedit } = require('rcedit');
+
+function resolveRcedit() {
+    try {
+        const loaded = require('rcedit');
+        if (typeof loaded === 'function') {
+            return loaded;
+        }
+
+        if (loaded && typeof loaded.rcedit === 'function') {
+            return loaded.rcedit;
+        }
+    } catch (error) {
+        if (error && error.code === 'MODULE_NOT_FOUND' && error.message.includes("'rcedit'")) {
+            return null;
+        }
+
+        throw error;
+    }
+
+    throw new Error('The rcedit module was loaded, but no callable export was found.');
+}
 
 module.exports = async function afterPack(context) {
     if (context.electronPlatformName !== 'win32') {
+        return;
+    }
+
+    const rcedit = resolveRcedit();
+    if (!rcedit) {
+        console.warn('[afterPack] Skipping Windows icon patch because module "rcedit" is not installed.');
         return;
     }
 
