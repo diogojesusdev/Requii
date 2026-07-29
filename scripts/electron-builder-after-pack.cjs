@@ -45,12 +45,6 @@ module.exports = async function afterPack(context) {
         throw new Error(`Windows icon file not found for icon update: ${iconPath}`);
     }
 
-    const rcedit = resolveRcedit();
-    if (!rcedit) {
-        console.warn('[afterPack] Skipping Windows icon patch because module "rcedit" is not installed.');
-        return;
-    }
-
     await rcedit(exePath, { icon: iconPath });
     console.log(`[afterPack] Applied icon to ${exePath}`);
 };
